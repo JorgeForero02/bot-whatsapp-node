@@ -1,0 +1,158 @@
+<?php
+$pageTitle = 'Credenciales - WhatsApp Bot';
+$currentPage = 'credentials';
+
+ob_start();
+?>
+
+<div class="page-header">
+    <h1 class="page-title">Credenciales y Conexiones</h1>
+    <p class="page-subtitle">Configura las credenciales de los servicios externos</p>
+</div>
+
+<div id="credentials-container" style="display:flex;flex-direction:column;gap:1.25rem;">
+
+    <!-- WhatsApp Business -->
+    <div class="card">
+      <div class="card-header">
+        <div style="display:flex;align-items:center;gap:0.75rem;">
+          <div style="width:2.25rem;height:2.25rem;border-radius:50%;background:#dcfce7;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <svg width="18" height="18" fill="none" stroke="#16a34a" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+          </div>
+          <span class="card-title">WhatsApp Business</span>
+        </div>
+        <div id="wa-status" style="display:flex;align-items:center;gap:0.5rem;font-size:0.8125rem;">
+          <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--text-muted);"></span>
+          <span style="color:var(--text-muted);">Verificando...</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <form id="whatsapp-form" class="form-stack">
+            <div class="form-group">
+                <label class="form-label">Phone Number ID</label>
+                <input type="text" name="phone_number_id" class="form-input" placeholder="Ej: 123456789012345">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Access Token</label>
+                <div style="display:flex;gap:0.5rem;">
+                    <input type="password" name="access_token" class="form-input" style="flex:1;" placeholder="Dejar vacío para mantener el actual">
+                    <button type="button" onclick="togglePassword(this)" class="btn btn-secondary btn-sm" style="flex-shrink:0;">Mostrar</button>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">App Secret</label>
+                    <input type="password" name="app_secret" class="form-input" placeholder="Dejar vacío para mantener el actual">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Verify Token</label>
+                    <input type="text" name="verify_token" class="form-input" placeholder="Token de verificación del webhook">
+                </div>
+            </div>
+            <div style="display:flex;gap:0.625rem;flex-wrap:wrap;">
+                <button type="submit" class="btn btn-primary btn-sm">Guardar WhatsApp</button>
+                <button type="button" onclick="testConnection('whatsapp')" class="btn btn-secondary btn-sm">Probar Conexión</button>
+            </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- OpenAI -->
+    <div class="card">
+      <div class="card-header">
+        <div style="display:flex;align-items:center;gap:0.75rem;">
+          <div style="width:2.25rem;height:2.25rem;border-radius:50%;background:#f3e8ff;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <svg width="18" height="18" fill="none" stroke="#9333ea" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+          </div>
+          <span class="card-title">OpenAI</span>
+        </div>
+        <div id="oai-status" style="display:flex;align-items:center;gap:0.5rem;font-size:0.8125rem;">
+          <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--text-muted);"></span>
+          <span style="color:var(--text-muted);">Verificando...</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <form id="openai-form" class="form-stack">
+            <div class="form-group">
+                <label class="form-label">API Key</label>
+                <div style="display:flex;gap:0.5rem;">
+                    <input type="password" name="api_key" class="form-input" style="flex:1;" placeholder="Dejar vacío para mantener la actual">
+                    <button type="button" onclick="togglePassword(this)" class="btn btn-secondary btn-sm" style="flex-shrink:0;">Mostrar</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Modelo</label>
+                <select name="model" class="form-select">
+                    <option value="gpt-4o">GPT-4o</option>
+                    <option value="gpt-4o-mini">GPT-4o Mini</option>
+                    <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                    <option value="gpt-4">GPT-4</option>
+                    <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                </select>
+            </div>
+            <div style="display:flex;gap:0.625rem;flex-wrap:wrap;">
+                <button type="submit" class="btn btn-primary btn-sm">Guardar OpenAI</button>
+                <button type="button" onclick="testConnection('openai')" class="btn btn-secondary btn-sm">Probar Conexión</button>
+            </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Google Calendar -->
+    <div class="card">
+      <div class="card-header">
+        <div style="display:flex;align-items:center;gap:0.75rem;">
+          <div style="width:2.25rem;height:2.25rem;border-radius:50%;background:#dbeafe;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <svg width="18" height="18" fill="none" stroke="#2563eb" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+          </div>
+          <span class="card-title">Google Calendar</span>
+        </div>
+        <div id="gc-status" style="display:flex;align-items:center;gap:0.5rem;font-size:0.8125rem;">
+          <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--text-muted);"></span>
+          <span style="color:var(--text-muted);">Verificando...</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <form id="google-form" class="form-stack">
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Client ID</label>
+                    <input type="text" name="client_id" class="form-input" placeholder="Client ID de Google Cloud Console">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Client Secret</label>
+                    <input type="password" name="client_secret" class="form-input" placeholder="Dejar vacío para mantener el actual">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Calendar ID</label>
+                <input type="text" name="calendar_id" class="form-input" placeholder="email@gmail.com o ID del calendario">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Access Token</label>
+                    <input type="password" name="access_token" class="form-input" placeholder="Dejar vacío para mantener el actual">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Refresh Token</label>
+                    <input type="password" name="refresh_token" class="form-input" placeholder="Dejar vacío para mantener el actual">
+                </div>
+            </div>
+            <div style="display:flex;gap:0.625rem;flex-wrap:wrap;">
+                <button type="submit" class="btn btn-primary btn-sm">Guardar Google Calendar</button>
+                <button type="button" onclick="testConnection('google')" class="btn btn-secondary btn-sm">Probar Conexión</button>
+            </div>
+        </form>
+      </div>
+    </div>
+
+</div>
+
+<?php
+$content = ob_get_clean();
+
+$scripts = '';
+$extraScripts = '<script src="' . (defined('BASE_PATH') ? BASE_PATH : '') . '/assets/js/settings-credentials.js"></script>';
+
+require __DIR__ . '/layout.php';
+?>

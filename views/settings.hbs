@@ -1,0 +1,108 @@
+<h2 class="mb-4"><i class="bi bi-gear me-2"></i>Configuración</h2>
+
+<div class="row">
+  <div class="col-md-8">
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-white fw-bold">Personalidad del Bot</div>
+      <div class="card-body">
+        <div class="mb-3">
+          <label class="form-label">System Prompt</label>
+          <textarea class="form-control" id="system-prompt" rows="6" placeholder="Ej: Eres un asistente virtual para una clínica dental..."></textarea>
+          <small class="text-muted">Define la personalidad y contexto de tu bot.</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-white fw-bold">Modo del Bot</div>
+      <div class="card-body">
+        <div class="form-check mb-2">
+          <input class="form-check-input" type="radio" name="botMode" id="mode-ai" value="ai">
+          <label class="form-check-label" for="mode-ai">
+            <strong>Modo AI</strong> — Responde con inteligencia artificial (OpenAI + RAG)
+          </label>
+        </div>
+        <div class="form-check mb-3">
+          <input class="form-check-input" type="radio" name="botMode" id="mode-classic" value="classic">
+          <label class="form-check-label" for="mode-classic">
+            <strong>Modo Clásico</strong> — Flujos de conversación predefinidos
+          </label>
+        </div>
+        <div id="classic-hint" class="alert alert-info py-2 d-none">
+          <i class="bi bi-info-circle me-1"></i>
+          En modo clásico, configura los flujos en <a href="/flow-builder">Constructor de Flujos</a>.
+        </div>
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-white fw-bold">Modelo OpenAI</div>
+      <div class="card-body">
+        <div class="mb-3">
+          <label class="form-label">Modelo</label>
+          <select class="form-select" id="openai-model">
+            <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+            <option value="gpt-4">GPT-4</option>
+            <option value="gpt-4-turbo">GPT-4 Turbo</option>
+            <option value="gpt-4o">GPT-4o</option>
+            <option value="gpt-4o-mini">GPT-4o Mini</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" id="save-btn" onclick="saveSettings()">
+      <i class="bi bi-check-lg me-1"></i> Guardar configuración
+    </button>
+    <div id="save-status" class="mt-2"></div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', loadSettings);
+
+document.querySelectorAll('input[name="botMode"]').forEach(r => {
+  r.addEventListener('change', () => {
+    document.getElementById('classic-hint').classList.toggle('d-none', r.value !== 'classic');
+  });
+});
+
+async function loadSettings() {
+  try {
+    const res = await fetch('/api/settings');
+    const data = await res.json();
+    if (data.success) {
+      const s = data.data;
+      document.getElementById('system-prompt').value = s.system_prompt || '';
+      const mode = s.bot_mode || 'ai';
+      document.getElementById(mode === 'classic' ? 'mode-classic' : 'mode-ai').checked = true;
+      if (mode === 'classic') document.getElementById('classic-hint').classList.remove('d-none');
+      if (s.openai_model) document.getElementById('openai-model').value = s.openai_model;
+    }
+  } catch (e) { console.error(e); }
+}
+
+async function saveSettings() {
+  const btn = document.getElementById('save-btn');
+  btn.disabled = true;
+  const mode = document.querySelector('input[name="botMode"]:checked')?.value || 'ai';
+  try {
+    const res = await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        system_prompt: document.getElementById('system-prompt').value,
+        bot_mode: mode,
+        openai_model: document.getElementById('openai-model').value,
+      })
+    });
+    const data = await res.json();
+    document.getElementById('save-status').innerHTML = data.success
+      ? '<div class="alert alert-success py-1">Guardado correctamente</div>'
+      : '<div class="alert alert-danger py-1">Error al guardar</div>';
+  } catch (e) {
+    document.getElementById('save-status').innerHTML = '<div class="alert alert-danger py-1">Error de conexión</div>';
+  }
+  btn.disabled = false;
+}
+</script>

@@ -1,0 +1,143 @@
+<h2 class="mb-4"><i class="bi bi-rocket-takeoff me-2"></i>Configuración Inicial</h2>
+
+<div class="row justify-content-center">
+  <div class="col-md-10">
+    <!-- Progress Bar -->
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-body">
+        <div class="d-flex justify-content-between mb-2">
+          <span class="fw-bold" id="progress-text">Cargando...</span>
+          <span class="text-muted" id="progress-count"></span>
+        </div>
+        <div class="progress" style="height: 8px;">
+          <div class="progress-bar bg-success" id="progress-bar" style="width: 0%"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Steps -->
+    <div id="steps-container"></div>
+
+    <div class="text-center mt-3">
+      <button class="btn btn-sm btn-outline-secondary" onclick="resetOnboarding()">
+        <i class="bi bi-arrow-counterclockwise me-1"></i> Reiniciar configuración
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+const STEP_INFO = {
+  whatsapp_credentials: {
+    icon: 'bi-whatsapp', color: 'success',
+    title: 'Credenciales WhatsApp',
+    description: 'Configura tu acceso a la API de WhatsApp Business.',
+    action: '/credentials', actionText: 'Ir a Credenciales'
+  },
+  openai_credentials: {
+    icon: 'bi-cpu', color: 'primary',
+    title: 'Credenciales OpenAI',
+    description: 'Configura tu API Key de OpenAI para las respuestas inteligentes.',
+    action: '/credentials', actionText: 'Ir a Credenciales', skippable: true
+  },
+  bot_personality: {
+    icon: 'bi-chat-heart', color: 'info',
+    title: 'Personalidad del Bot',
+    description: 'Define el system prompt y el modo de tu bot.',
+    action: '/settings', actionText: 'Ir a Configuración'
+  },
+  calendar_setup: {
+    icon: 'bi-calendar3', color: 'warning',
+    title: 'Calendario (opcional)',
+    description: 'Conecta Google Calendar para agendar citas desde WhatsApp.',
+    action: '/calendar-settings', actionText: 'Ir a Calendario', skippable: true
+  },
+  flow_builder: {
+    icon: 'bi-diagram-3', color: 'secondary',
+    title: 'Constructor de Flujos (opcional)',
+    description: 'Crea flujos de conversación para el modo clásico.',
+    action: '/flow-builder', actionText: 'Ir a Flujos', skippable: true
+  },
+  test_connection: {
+    icon: 'bi-plug', color: 'danger',
+    title: 'Probar Conexión',
+    description: 'Verifica que todo esté funcionando correctamente.',
+    action: null, actionText: 'Probar ahora'
+  },
+  go_live: {
+    icon: 'bi-rocket', color: 'success',
+    title: '¡Lanzar!',
+    description: 'Tu bot está listo. Activa el webhook en Meta Developer Portal.',
+    action: null, actionText: 'Completar'
+  }
+};
+
+document.addEventListener('DOMContentLoaded', loadOnboarding);
+
+async function loadOnboarding() {
+  try {
+    const res = await fetch('/api/onboarding-progress');
+    const data = await res.json();
+    if (!data.success) return;
+    const { steps, completedCount, totalCount, currentStep } = data.data;
+    const pct = Math.round((completedCount / totalCount) * 100);
+    document.getElementById('progress-text').textContent = completedCount >= totalCount ? '¡Configuración completa!' : `Paso ${completedCount + 1} de ${totalCount}`;
+    document.getElementById('progress-count').textContent = `${pct}%`;
+    document.getElementById('progress-bar').style.width = `${pct}%`;
+
+    const container = document.getElementById('steps-container');
+    container.innerHTML = steps.map((step, i) => {
+      const info = STEP_INFO[step.name] || { icon: 'bi-circle', color: 'secondary', title: step.name, description: '' };
+      const isDone = step.isCompleted || step.isSkipped;
+      const isCurrent = currentStep && currentStep.name === step.name;
+      return `
+        <div class="card border-0 shadow-sm mb-3 ${isCurrent ? 'border-start border-4 border-primary' : ''}" style="opacity: ${isDone ? 0.6 : 1}">
+          <div class="card-body d-flex align-items-center">
+            <div class="me-3">
+              ${isDone
+                ? '<i class="bi bi-check-circle-fill text-success fs-3"></i>'
+                : `<i class="bi ${info.icon} text-${info.color} fs-3"></i>`}
+            </div>
+            <div class="flex-grow-1">
+              <h6 class="mb-0 ${isDone ? 'text-decoration-line-through' : ''}">${info.title}</h6>
+              <small class="text-muted">${info.description}</small>
+              ${step.isSkipped ? '<span class="badge bg-secondary ms-2">Omitido</span>' : ''}
+            </div>
+            <div>
+              ${isDone ? '' : `
+                ${info.action ? `<a href="${info.action}" class="btn btn-sm btn-outline-${info.color} me-1">${info.actionText}</a>` : ''}
+                <button class="btn btn-sm btn-${info.color}" onclick="completeStep('${step.name}')">Completar</button>
+                ${info.skippable ? `<button class="btn btn-sm btn-outline-secondary ms-1" onclick="skipStep('${step.name}')">Omitir</button>` : ''}
+              `}
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch (e) { console.error(e); }
+}
+
+async function completeStep(step) {
+  await fetch('/api/onboarding-progress', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ step, action: 'complete' })
+  });
+  loadOnboarding();
+}
+
+async function skipStep(step) {
+  await fetch('/api/onboarding-progress', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ step, action: 'skip' })
+  });
+  loadOnboarding();
+}
+
+async function resetOnboarding() {
+  if (!confirm('¿Reiniciar toda la configuración?')) return;
+  await fetch('/api/onboarding-reset', { method: 'POST' });
+  loadOnboarding();
+}
+</script>

@@ -1,0 +1,292 @@
+<h2 class="mb-4"><i class="bi bi-diagram-3 me-2"></i>Constructor de Flujos</h2>
+
+<div class="row">
+  <div class="col-md-8">
+    <div class="d-flex justify-content-between mb-3">
+      <button class="btn btn-primary" onclick="openNodeModal()">
+        <i class="bi bi-plus-lg me-1"></i> Nuevo nodo
+      </button>
+      <div>
+        <button class="btn btn-outline-secondary me-1" onclick="exportFlows()">
+          <i class="bi bi-download me-1"></i> Exportar JSON
+        </button>
+        <label class="btn btn-outline-secondary mb-0">
+          <i class="bi bi-upload me-1"></i> Importar JSON
+          <input type="file" accept=".json" class="d-none" onchange="importFlows(event)">
+        </label>
+      </div>
+    </div>
+
+    <div id="flow-nodes">
+      <div class="text-center text-muted py-5">Cargando nodos...</div>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-bold"><i class="bi bi-chat-square-text me-1"></i> Simulador</div>
+      <div class="card-body">
+        <div id="sim-messages" class="border rounded p-2 mb-2" style="height: 300px; overflow-y: auto; background: #e5ddd5;"></div>
+        <div class="input-group">
+          <input type="text" class="form-control" id="sim-input" placeholder="Escribe un mensaje..." onkeydown="if(event.key==='Enter')simulateMessage()">
+          <button class="btn btn-primary" onclick="simulateMessage()"><i class="bi bi-send"></i></button>
+        </div>
+        <button class="btn btn-sm btn-outline-secondary mt-2" onclick="resetSimulator()">Reiniciar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Node Modal -->
+<div class="modal fade" id="nodeModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="nodeModalTitle">Nuevo Nodo</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="node-id">
+        <div class="mb-3">
+          <label class="form-label">Nombre</label>
+          <input type="text" class="form-control" id="node-name" placeholder="Ej: Saludo inicial">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Palabras clave (separadas por coma)</label>
+          <input type="text" class="form-control" id="node-keywords" placeholder="hola, buenos días, hey">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Mensaje del bot</label>
+          <textarea class="form-control" id="node-message" rows="4" placeholder="¡Hola! ¿En qué puedo ayudarte?"></textarea>
+        </div>
+        <div class="row mb-3">
+          <div class="col-md-6">
+            <label class="form-label">Siguiente nodo ID (opcional)</label>
+            <input type="number" class="form-control" id="node-next-id">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Orden</label>
+            <input type="number" class="form-control" id="node-order" value="0">
+          </div>
+        </div>
+        <div class="row mb-3">
+          <div class="col">
+            <div class="form-check"><input class="form-check-input" type="checkbox" id="node-is-root"><label class="form-check-label" for="node-is-root">Nodo raíz</label></div>
+          </div>
+          <div class="col">
+            <div class="form-check"><input class="form-check-input" type="checkbox" id="node-requires-calendar"><label class="form-check-label" for="node-requires-calendar">Requiere calendario</label></div>
+          </div>
+          <div class="col">
+            <div class="form-check"><input class="form-check-input" type="checkbox" id="node-is-farewell"><label class="form-check-label" for="node-is-farewell">Es despedida</label></div>
+          </div>
+          <div class="col">
+            <div class="form-check"><input class="form-check-input" type="checkbox" id="node-is-active" checked><label class="form-check-label" for="node-is-active">Activo</label></div>
+          </div>
+        </div>
+        <hr>
+        <h6>Opciones <button class="btn btn-sm btn-outline-primary ms-2" onclick="addOptionRow()"><i class="bi bi-plus"></i></button></h6>
+        <div id="options-container"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" onclick="saveNode()">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let flowData = [];
+
+document.addEventListener('DOMContentLoaded', loadFlows);
+
+async function loadFlows() {
+  try {
+    const res = await fetch('/api/flows');
+    const data = await res.json();
+    flowData = data.success ? data.data : [];
+    renderNodes();
+  } catch (e) { console.error(e); }
+}
+
+function renderNodes() {
+  const container = document.getElementById('flow-nodes');
+  if (flowData.length === 0) {
+    container.innerHTML = '<div class="text-center text-muted py-5">No hay nodos. Crea el primero.</div>';
+    return;
+  }
+  container.innerHTML = flowData.map(node => `
+    <div class="card border-0 shadow-sm mb-2">
+      <div class="card-body d-flex align-items-center">
+        <div class="me-3">
+          ${node.isRoot ? '<span class="badge bg-primary">Raíz</span>' : ''}
+          ${node.requiresCalendar ? '<span class="badge bg-warning">Calendario</span>' : ''}
+          ${node.isFarewell ? '<span class="badge bg-secondary">Despedida</span>' : ''}
+          ${!node.isActive ? '<span class="badge bg-danger">Inactivo</span>' : ''}
+        </div>
+        <div class="flex-grow-1">
+          <strong>#${node.id} ${node.name}</strong>
+          <div class="text-muted small">${(node.triggerKeywords || []).join(', ')}</div>
+          <div class="small mt-1">${node.messageText.substring(0, 80)}${node.messageText.length > 80 ? '...' : ''}</div>
+          ${node.options && node.options.length > 0 ? `<div class="mt-1">${node.options.map(o => `<span class="badge bg-light text-dark me-1">${o.optionText}</span>`).join('')}</div>` : ''}
+        </div>
+        <div>
+          <button class="btn btn-sm btn-outline-primary me-1" onclick='editNode(${JSON.stringify(node).replace(/'/g, "&#39;")})'>
+            <i class="bi bi-pencil"></i>
+          </button>
+          <button class="btn btn-sm btn-outline-danger" onclick="deleteNode(${node.id})">
+            <i class="bi bi-trash"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function openNodeModal(node) {
+  document.getElementById('nodeModalTitle').textContent = node ? 'Editar Nodo' : 'Nuevo Nodo';
+  document.getElementById('node-id').value = node ? node.id : '';
+  document.getElementById('node-name').value = node ? node.name : '';
+  document.getElementById('node-keywords').value = node ? (node.triggerKeywords || []).join(', ') : '';
+  document.getElementById('node-message').value = node ? node.messageText : '';
+  document.getElementById('node-next-id').value = node ? (node.nextNodeId || '') : '';
+  document.getElementById('node-order').value = node ? (node.positionOrder || 0) : 0;
+  document.getElementById('node-is-root').checked = node ? !!node.isRoot : false;
+  document.getElementById('node-requires-calendar').checked = node ? !!node.requiresCalendar : false;
+  document.getElementById('node-is-farewell').checked = node ? !!node.isFarewell : false;
+  document.getElementById('node-is-active').checked = node ? !!node.isActive : true;
+
+  const optContainer = document.getElementById('options-container');
+  optContainer.innerHTML = '';
+  if (node && node.options) {
+    node.options.forEach(o => addOptionRow(o));
+  }
+
+  new bootstrap.Modal(document.getElementById('nodeModal')).show();
+}
+
+function editNode(node) { openNodeModal(node); }
+
+function addOptionRow(opt) {
+  const container = document.getElementById('options-container');
+  const div = document.createElement('div');
+  div.className = 'row mb-2 option-row';
+  div.innerHTML = `
+    <div class="col-4"><input type="text" class="form-control form-control-sm opt-text" placeholder="Texto" value="${opt ? opt.optionText : ''}"></div>
+    <div class="col-4"><input type="text" class="form-control form-control-sm opt-keywords" placeholder="Palabras clave (coma)" value="${opt ? (opt.optionKeywords || []).join(', ') : ''}"></div>
+    <div class="col-3"><input type="number" class="form-control form-control-sm opt-next" placeholder="→ Nodo ID" value="${opt && opt.nextNodeId ? opt.nextNodeId : ''}"></div>
+    <div class="col-1"><button class="btn btn-sm btn-outline-danger" onclick="this.closest('.option-row').remove()"><i class="bi bi-x"></i></button></div>
+  `;
+  container.appendChild(div);
+}
+
+async function saveNode() {
+  const id = document.getElementById('node-id').value || null;
+  const options = [];
+  document.querySelectorAll('.option-row').forEach(row => {
+    const text = row.querySelector('.opt-text').value.trim();
+    if (!text) return;
+    options.push({
+      optionText: text,
+      optionKeywords: row.querySelector('.opt-keywords').value.split(',').map(s => s.trim()).filter(Boolean),
+      nextNodeId: parseInt(row.querySelector('.opt-next').value) || null,
+      positionOrder: 0
+    });
+  });
+
+  const body = {
+    id: id ? parseInt(id) : null,
+    name: document.getElementById('node-name').value,
+    triggerKeywords: document.getElementById('node-keywords').value.split(',').map(s => s.trim()).filter(Boolean),
+    messageText: document.getElementById('node-message').value,
+    nextNodeId: parseInt(document.getElementById('node-next-id').value) || null,
+    isRoot: document.getElementById('node-is-root').checked,
+    requiresCalendar: document.getElementById('node-requires-calendar').checked,
+    isFarewell: document.getElementById('node-is-farewell').checked,
+    isActive: document.getElementById('node-is-active').checked,
+    positionOrder: parseInt(document.getElementById('node-order').value) || 0,
+    options
+  };
+
+  await fetch('/api/flows', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+
+  bootstrap.Modal.getInstance(document.getElementById('nodeModal')).hide();
+  loadFlows();
+}
+
+async function deleteNode(id) {
+  if (!confirm('¿Eliminar este nodo y sus opciones?')) return;
+  await fetch(`/api/flows/${id}`, { method: 'DELETE' });
+  loadFlows();
+}
+
+async function exportFlows() {
+  const res = await fetch('/api/flows/export');
+  const data = await res.json();
+  const blob = new Blob([JSON.stringify(data.data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'flow-export.json';
+  a.click();
+}
+
+async function importFlows(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const text = await file.text();
+  const json = JSON.parse(text);
+  await fetch('/api/flows/import', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(json)
+  });
+  loadFlows();
+}
+
+// Simulator
+let simHistory = [];
+
+function simulateMessage() {
+  const input = document.getElementById('sim-input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  addSimBubble(text, 'user');
+  simulateBot(text);
+}
+
+function addSimBubble(text, sender) {
+  const container = document.getElementById('sim-messages');
+  const div = document.createElement('div');
+  div.className = `mb-2 d-flex ${sender === 'user' ? 'justify-content-end' : 'justify-content-start'}`;
+  div.innerHTML = `<div class="p-2 rounded-3 shadow-sm" style="max-width:85%; background: ${sender === 'user' ? '#dcf8c6' : '#fff'}; white-space: pre-wrap;">${text}</div>`;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function simulateBot(text) {
+  const lower = text.toLowerCase();
+  for (const node of flowData) {
+    if (!node.isRoot || !node.isActive) continue;
+    const keywords = node.triggerKeywords || [];
+    if (keywords.some(kw => lower.includes(kw.toLowerCase()))) {
+      let response = node.messageText;
+      if (node.options && node.options.length > 0) {
+        response += '\n\n';
+        node.options.forEach((o, i) => { response += `${i + 1}. ${o.optionText}\n`; });
+      }
+      addSimBubble(response, 'bot');
+      return;
+    }
+  }
+  addSimBubble('(Sin coincidencia — se usaría fallback/AI)', 'bot');
+}
+
+function resetSimulator() {
+  document.getElementById('sim-messages').innerHTML = '';
+}
+</script>

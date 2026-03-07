@@ -1,0 +1,114 @@
+<h2 class="mb-4"><i class="bi bi-file-earmark-text me-2"></i>Documentos RAG</h2>
+
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <form id="upload-form" enctype="multipart/form-data">
+      <div class="row align-items-end">
+        <div class="col-md-8">
+          <label class="form-label fw-bold">Subir documento</label>
+          <input type="file" class="form-control" id="doc-file" accept=".pdf,.txt,.docx">
+          <small class="text-muted">Formatos: PDF, TXT, DOCX. Máx 10MB.</small>
+        </div>
+        <div class="col-md-4">
+          <button type="submit" class="btn btn-primary w-100" id="upload-btn">
+            <i class="bi bi-cloud-upload me-1"></i> Subir y procesar
+          </button>
+        </div>
+      </div>
+    </form>
+    <div id="upload-status" class="mt-2"></div>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-header bg-white fw-bold">Documentos indexados</div>
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Nombre</th>
+          <th>Tipo</th>
+          <th>Chunks</th>
+          <th>Tamaño</th>
+          <th>Fecha</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="doc-list">
+        <tr><td colspan="6" class="text-center text-muted py-4">Cargando...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', loadDocuments);
+
+async function loadDocuments() {
+  try {
+    const res = await fetch('/api/documents');
+    const data = await res.json();
+    const tbody = document.getElementById('doc-list');
+    if (data.success && data.data.length > 0) {
+      tbody.innerHTML = data.data.map(d => `
+        <tr>
+          <td><i class="bi bi-file-earmark me-1"></i>${d.original_name || d.originalName || d.filename}</td>
+          <td><span class="badge bg-secondary">${(d.file_type || d.fileType || '').toUpperCase()}</span></td>
+          <td>${d.chunk_count ?? d.chunkCount ?? '—'}</td>
+          <td>${formatSize(d.file_size || d.fileSize || 0)}</td>
+          <td>${d.created_at || d.createdAt ? new Date(d.created_at || d.createdAt).toLocaleDateString('es-CO') : '—'}</td>
+          <td>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteDoc(${d.id})">
+              <i class="bi bi-trash"></i>
+            </button>
+          </td>
+        </tr>
+      `).join('');
+    } else {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">No hay documentos</td></tr>';
+    }
+  } catch (e) { console.error(e); }
+}
+
+async function deleteDoc(id) {
+  if (!confirm('¿Eliminar este documento y sus vectores?')) return;
+  await fetch(`/api/documents/${id}`, { method: 'DELETE' });
+  loadDocuments();
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1048576).toFixed(1) + ' MB';
+}
+
+document.getElementById('upload-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const file = document.getElementById('doc-file').files[0];
+  if (!file) return;
+  const btn = document.getElementById('upload-btn');
+  const status = document.getElementById('upload-status');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Procesando...';
+  status.innerHTML = '';
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const res = await fetch('/api/documents/upload', { method: 'POST', body: formData });
+    const data = await res.json();
+    if (data.success) {
+      status.innerHTML = `<div class="alert alert-success py-1">Documento procesado: ${data.chunkCount ?? '?'} chunks indexados.</div>`;
+      loadDocuments();
+    } else {
+      status.innerHTML = `<div class="alert alert-danger py-1">${data.message || 'Error al procesar'}</div>`;
+    }
+  } catch (err) {
+    status.innerHTML = `<div class="alert alert-danger py-1">Error de conexión</div>`;
+  }
+  btn.disabled = false;
+  btn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i> Subir y procesar';
+  document.getElementById('doc-file').value = '';
+});
+</script>

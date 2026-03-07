@@ -1,0 +1,131 @@
+<h2 class="mb-4"><i class="bi bi-calendar3 me-2"></i>Configuración de Calendario</h2>
+
+<div class="row">
+  <div class="col-md-8">
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-white fw-bold">General</div>
+      <div class="card-body">
+        <div class="row mb-3">
+          <div class="col-md-6">
+            <label class="form-label">Zona horaria</label>
+            <input type="text" class="form-control" id="cal-timezone" value="America/Bogota">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Duración por defecto (min)</label>
+            <input type="number" class="form-control" id="cal-duration" value="60">
+          </div>
+        </div>
+        <div class="row mb-3">
+          <div class="col-md-6">
+            <label class="form-label">Máx eventos por día</label>
+            <input type="number" class="form-control" id="cal-max-events" value="8">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Horas mínimas de antelación</label>
+            <input type="number" class="form-control" id="cal-min-advance" value="1">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-white fw-bold">Horario de Atención</div>
+      <div class="card-body">
+        <div id="business-hours">
+          <div class="row mb-2 align-items-center" data-day="monday">
+            <div class="col-3"><div class="form-check"><input class="form-check-input bh-enabled" type="checkbox" checked><label class="form-check-label">Lunes</label></div></div>
+            <div class="col-4"><input type="time" class="form-control form-control-sm bh-start" value="08:00"></div>
+            <div class="col-1 text-center">a</div>
+            <div class="col-4"><input type="time" class="form-control form-control-sm bh-end" value="18:00"></div>
+          </div>
+          <div class="row mb-2 align-items-center" data-day="tuesday">
+            <div class="col-3"><div class="form-check"><input class="form-check-input bh-enabled" type="checkbox" checked><label class="form-check-label">Martes</label></div></div>
+            <div class="col-4"><input type="time" class="form-control form-control-sm bh-start" value="08:00"></div>
+            <div class="col-1 text-center">a</div>
+            <div class="col-4"><input type="time" class="form-control form-control-sm bh-end" value="18:00"></div>
+          </div>
+          <div class="row mb-2 align-items-center" data-day="wednesday">
+            <div class="col-3"><div class="form-check"><input class="form-check-input bh-enabled" type="checkbox" checked><label class="form-check-label">Miércoles</label></div></div>
+            <div class="col-4"><input type="time" class="form-control form-control-sm bh-start" value="08:00"></div>
+            <div class="col-1 text-center">a</div>
+            <div class="col-4"><input type="time" class="form-control form-control-sm bh-end" value="18:00"></div>
+          </div>
+          <div class="row mb-2 align-items-center" data-day="thursday">
+            <div class="col-3"><div class="form-check"><input class="form-check-input bh-enabled" type="checkbox" checked><label class="form-check-label">Jueves</label></div></div>
+            <div class="col-4"><input type="time" class="form-control form-control-sm bh-start" value="08:00"></div>
+            <div class="col-1 text-center">a</div>
+            <div class="col-4"><input type="time" class="form-control form-control-sm bh-end" value="18:00"></div>
+          </div>
+          <div class="row mb-2 align-items-center" data-day="friday">
+            <div class="col-3"><div class="form-check"><input class="form-check-input bh-enabled" type="checkbox" checked><label class="form-check-label">Viernes</label></div></div>
+            <div class="col-4"><input type="time" class="form-control form-control-sm bh-start" value="08:00"></div>
+            <div class="col-1 text-center">a</div>
+            <div class="col-4"><input type="time" class="form-control form-control-sm bh-end" value="18:00"></div>
+          </div>
+          <div class="row mb-2 align-items-center" data-day="saturday">
+            <div class="col-3"><div class="form-check"><input class="form-check-input bh-enabled" type="checkbox"><label class="form-check-label">Sábado</label></div></div>
+            <div class="col-4"><input type="time" class="form-control form-control-sm bh-start" value="09:00" disabled></div>
+            <div class="col-1 text-center">a</div>
+            <div class="col-4"><input type="time" class="form-control form-control-sm bh-end" value="13:00" disabled></div>
+          </div>
+          <div class="row mb-2 align-items-center" data-day="sunday">
+            <div class="col-3"><div class="form-check"><input class="form-check-input bh-enabled" type="checkbox"><label class="form-check-label">Domingo</label></div></div>
+            <div class="col-4"><input type="time" class="form-control form-control-sm bh-start" value="09:00" disabled></div>
+            <div class="col-1 text-center">a</div>
+            <div class="col-4"><input type="time" class="form-control form-control-sm bh-end" value="13:00" disabled></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" onclick="saveCalendarSettings()">
+      <i class="bi bi-check-lg me-1"></i> Guardar
+    </button>
+    <div id="cal-save-status" class="mt-2"></div>
+  </div>
+</div>
+
+<script>
+document.querySelectorAll('.bh-enabled').forEach(cb => {
+  cb.addEventListener('change', function() {
+    const row = this.closest('[data-day]');
+    row.querySelectorAll('input[type="time"]').forEach(i => i.disabled = !this.checked);
+  });
+});
+
+async function saveCalendarSettings() {
+  const businessHours = {};
+  document.querySelectorAll('[data-day]').forEach(row => {
+    const day = row.dataset.day;
+    const enabled = row.querySelector('.bh-enabled').checked;
+    if (enabled) {
+      businessHours[day] = {
+        start: row.querySelector('.bh-start').value,
+        end: row.querySelector('.bh-end').value
+      };
+    } else {
+      businessHours[day] = null;
+    }
+  });
+
+  try {
+    const res = await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        calendar_timezone: document.getElementById('cal-timezone').value,
+        calendar_default_duration: document.getElementById('cal-duration').value,
+        calendar_max_events_per_day: document.getElementById('cal-max-events').value,
+        calendar_min_advance_hours: document.getElementById('cal-min-advance').value,
+        calendar_business_hours: JSON.stringify(businessHours),
+      })
+    });
+    const data = await res.json();
+    document.getElementById('cal-save-status').innerHTML = data.success
+      ? '<div class="alert alert-success py-1">Guardado</div>'
+      : '<div class="alert alert-danger py-1">Error</div>';
+  } catch (e) {
+    document.getElementById('cal-save-status').innerHTML = '<div class="alert alert-danger py-1">Error de conexión</div>';
+  }
+}
+</script>
