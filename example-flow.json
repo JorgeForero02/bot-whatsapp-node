@@ -1,0 +1,200 @@
+{
+  "version": "1.0",
+  "exported_at": "2026-03-03T00:00:00.000Z",
+  "nodes": [
+    {
+      "id": 1,
+      "name": "Bienvenida",
+      "trigger_keywords": [],
+      "message_text": "Bienvenido a nuestro servicio. Soy tu asistente virtual.\n\n¿En qué puedo ayudarte hoy?\n\n1. Agendar una cita\n2. Ver mis citas\n3. Cancelar una cita\n4. Reagendar una cita\n5. Informacion de servicios\n6. Ubicacion y horarios\n7. Hablar con un agente\n\nEscribe el numero de tu opcion o escribeme lo que necesitas.",
+      "next_node_id": null,
+      "is_root": true,
+      "requires_calendar": false,
+      "match_any_input": true,
+      "position_order": 1,
+      "is_active": true,
+      "options": [
+        {
+          "option_text": "1. Agendar una cita",
+          "option_keywords": ["1", "agendar", "cita", "appointment", "reservar", "turno", "nueva cita", "quiero cita"],
+          "next_node_id": 2,
+          "position_order": 1
+        },
+        {
+          "option_text": "2. Ver mis citas",
+          "option_keywords": ["2", "ver citas", "mis citas", "citas", "proximas", "tengo cita", "agenda", "agendado"],
+          "next_node_id": 6,
+          "position_order": 2
+        },
+        {
+          "option_text": "3. Cancelar una cita",
+          "option_keywords": ["3", "cancelar", "cancel", "anular", "borrar cita", "eliminar cita"],
+          "next_node_id": 7,
+          "position_order": 3
+        },
+        {
+          "option_text": "4. Reagendar una cita",
+          "option_keywords": ["4", "reagendar", "cambiar cita", "mover cita", "reprogramar", "cambiar fecha"],
+          "next_node_id": 8,
+          "position_order": 4
+        },
+        {
+          "option_text": "5. Informacion de servicios",
+          "option_keywords": ["5", "servicios", "servicio", "info", "informacion", "precios"],
+          "next_node_id": 3,
+          "position_order": 5
+        },
+        {
+          "option_text": "6. Ubicacion y horarios",
+          "option_keywords": ["6", "ubicacion", "horarios", "horario", "direccion", "donde"],
+          "next_node_id": 4,
+          "position_order": 6
+        },
+        {
+          "option_text": "7. Hablar con un agente",
+          "option_keywords": ["7", "agente", "humano", "persona", "operador", "ayuda"],
+          "next_node_id": 5,
+          "position_order": 7
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Agendar cita",
+      "trigger_keywords": ["agendar", "nueva cita", "quiero cita", "appointment", "reservar", "turno", "pedir cita"],
+      "message_text": "Perfecto, vamos a agendar tu cita.\n\nTe conectare con nuestro sistema de agendamiento. Por favor, indicame:\n\n¿Que dia prefieres?\nPuedes decir: *manana*, *el lunes*, *25/03/2026*, *15 de marzo*\n\n¿A que hora?\nPuedes decir: *10am*, *2pm*, *14:30*, *a las 3*",
+      "next_node_id": null,
+      "is_root": false,
+      "requires_calendar": true,
+      "match_any_input": false,
+      "position_order": 2,
+      "is_active": true,
+      "options": []
+    },
+    {
+      "id": 3,
+      "name": "Servicios",
+      "trigger_keywords": ["servicios", "servicio", "precios", "costo", "valor", "tarifa", "que hacen"],
+      "message_text": "Estos son nuestros servicios disponibles:\n\n- Consulta General: Atencion personalizada con nuestros especialistas\n- Consulta de Seguimiento: Para pacientes con cita previa\n- Procedimientos: Consulta disponibilidad con tu especialista\n\n¿Te gustaria agendar una cita para alguno de estos servicios?\n\n1. Si, agendar ahora\n2. Volver al menu principal",
+      "next_node_id": null,
+      "is_root": false,
+      "requires_calendar": false,
+      "match_any_input": false,
+      "position_order": 3,
+      "is_active": true,
+      "options": [
+        {
+          "option_text": "1. Si, agendar ahora",
+          "option_keywords": ["1", "si", "agendar", "quiero", "cita"],
+          "next_node_id": 2,
+          "position_order": 1
+        },
+        {
+          "option_text": "2. Volver al menu",
+          "option_keywords": ["2", "menu", "volver", "regresar", "inicio"],
+          "next_node_id": 1,
+          "position_order": 2
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Ubicacion y horarios",
+      "trigger_keywords": ["ubicacion", "horarios", "horario", "direccion", "donde", "abren", "cierran"],
+      "message_text": "*Nuestra ubicacion:*\nCalle Principal #123, Bogota, Colombia\n\n*Horarios de atencion:*\n- Lunes a Viernes: 8:00 AM - 6:00 PM\n- Sabados: 8:00 AM - 1:00 PM\n- Domingos: Cerrado\n\n*Telefono:* +57 300 000 0000\n*Email:* info@minegocio.com\n\n¿Deseas agendar una cita?\n\n1. Si, agendar cita\n2. Volver al menu",
+      "next_node_id": null,
+      "is_root": false,
+      "requires_calendar": false,
+      "match_any_input": false,
+      "position_order": 4,
+      "is_active": true,
+      "options": [
+        {
+          "option_text": "1. Si, agendar cita",
+          "option_keywords": ["1", "si", "agendar", "cita"],
+          "next_node_id": 2,
+          "position_order": 1
+        },
+        {
+          "option_text": "2. Volver al menu",
+          "option_keywords": ["2", "menu", "volver", "regresar"],
+          "next_node_id": 1,
+          "position_order": 2
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "Transferir a agente",
+      "trigger_keywords": ["agente", "humano", "persona", "operador", "hablar", "asistencia"],
+      "message_text": "Entendido, voy a transferirte con uno de nuestros agentes.\n\nPor favor, espera un momento mientras te conectamos.\n\nNuestros agentes estan disponibles:\n- Lunes a Viernes: 8:00 AM - 5:00 PM\n\nSi estas fuera de horario, te responderemos lo antes posible.\n\nEscribe *menu* para volver al menu principal.",
+      "next_node_id": null,
+      "is_root": false,
+      "requires_calendar": false,
+      "match_any_input": false,
+      "position_order": 5,
+      "is_active": true,
+      "options": [
+        {
+          "option_text": "Volver al menu",
+          "option_keywords": ["menu", "volver", "inicio", "regresar"],
+          "next_node_id": 1,
+          "position_order": 1
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "name": "Ver citas proximas",
+      "trigger_keywords": ["ver citas", "mis citas", "citas proximas", "tengo cita", "agendado", "que tengo"],
+      "message_text": "Voy a consultar tus citas proximas en el calendario.\n\nUn momento por favor...",
+      "next_node_id": null,
+      "is_root": false,
+      "requires_calendar": true,
+      "match_any_input": false,
+      "position_order": 6,
+      "is_active": true,
+      "options": []
+    },
+    {
+      "id": 7,
+      "name": "Cancelar cita",
+      "trigger_keywords": ["cancelar", "cancelar cita", "anular", "borrar cita", "eliminar cita", "no voy a ir"],
+      "message_text": "Entendido, vamos a cancelar tu cita.\n\nVoy a revisar tus proximas citas para que me indiques cual deseas cancelar.\n\nUn momento por favor...",
+      "next_node_id": null,
+      "is_root": false,
+      "requires_calendar": true,
+      "match_any_input": false,
+      "position_order": 7,
+      "is_active": true,
+      "options": []
+    },
+    {
+      "id": 8,
+      "name": "Reagendar cita",
+      "trigger_keywords": ["reagendar", "cambiar cita", "mover cita", "reprogramar", "cambiar fecha", "otra fecha"],
+      "message_text": "Claro, vamos a reagendar tu cita.\n\nVoy a revisar tus proximas citas para que me indiques cual deseas mover a otra fecha.\n\nUn momento por favor...",
+      "next_node_id": null,
+      "is_root": false,
+      "requires_calendar": true,
+      "match_any_input": false,
+      "position_order": 8,
+      "is_active": true,
+      "options": []
+    },
+    {
+      "id": 9,
+      "name": "Despedida",
+      "trigger_keywords": ["adios", "hasta luego", "chao", "bye", "gracias por todo", "eso es todo"],
+      "message_text": "Ha sido un placer atenderte. Si en algun momento necesitas mas ayuda, estamos aqui para ti.\n\n¡Hasta pronto!",
+      "next_node_id": null,
+      "is_root": false,
+      "requires_calendar": false,
+      "match_any_input": false,
+      "is_farewell": true,
+      "position_order": 9,
+      "is_active": true,
+      "options": []
+    }
+  ]
+}

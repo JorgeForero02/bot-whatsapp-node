@@ -60,48 +60,95 @@ export class ViewController {
       isDashboard: true,
       onboardingBanner: true,
       onboardingComplete: complete,
+      extraHead: '<script src="/assets/js/chart.umd.min.js"></script>',
+      extraScripts: '<script src="/assets/js/dashboard.js"></script>',
     });
   }
 
   @Get('conversations')
   async conversations(@Res() reply: FastifyReply): Promise<void> {
     const data = await this.getLayoutData('Conversations');
-    await this.render(reply, 'conversations', { ...data, title: 'Conversaciones', isConversations: true });
+    await this.render(reply, 'conversations', {
+      ...data,
+      title: 'Conversaciones',
+      isConversations: true,
+      extraScripts: '<script src="/assets/js/conversations.js"></script>',
+    });
   }
 
   @Get('documents')
   async documents(@Res() reply: FastifyReply): Promise<void> {
     const data = await this.getLayoutData('Documents');
-    await this.render(reply, 'documents', { ...data, title: 'Documentos', isDocuments: true });
+    await this.render(reply, 'documents', {
+      ...data,
+      title: 'Documentos',
+      isDocuments: true,
+      extraScripts: '<script src="/assets/js/documents.js"></script>',
+    });
   }
 
   @Get('settings')
   async settingsPage(@Res() reply: FastifyReply): Promise<void> {
     const data = await this.getLayoutData('Settings');
-    await this.render(reply, 'settings', { ...data, title: 'Configuración', isSettings: true });
+    await this.render(reply, 'settings', {
+      ...data,
+      title: 'Configuración',
+      isSettings: true,
+      extraScripts: '<script src="/assets/js/settings.js"></script>',
+    });
   }
 
   @Get('calendar-settings')
   async calendarSettings(@Res() reply: FastifyReply): Promise<void> {
     const data = await this.getLayoutData('CalendarSettings');
-    await this.render(reply, 'calendar-settings', { ...data, title: 'Calendario', isCalendarSettings: true });
+    await this.render(reply, 'calendar-settings', {
+      ...data,
+      title: 'Horarios Calendar',
+      isCalendarSettings: true,
+      extraScripts: '<script src="/assets/js/calendar-settings.js"></script>',
+    });
   }
 
   @Get('credentials')
   async credentials(@Res() reply: FastifyReply): Promise<void> {
     const data = await this.getLayoutData('Credentials');
-    await this.render(reply, 'credentials', { ...data, title: 'Credenciales', isCredentials: true });
+    await this.render(reply, 'credentials', {
+      ...data,
+      title: 'Credenciales',
+      isCredentials: true,
+      extraScripts: '<script src="/assets/js/settings-credentials.js"></script>',
+    });
   }
 
   @Get('onboarding')
   async onboardingPage(@Res() reply: FastifyReply): Promise<void> {
     const data = await this.getLayoutData('Onboarding');
-    await this.render(reply, 'onboarding', { ...data, title: 'Configuración Inicial' });
+    await this.render(reply, 'onboarding', {
+      ...data,
+      title: 'Configuración Inicial',
+      extraScripts: '<script src="/assets/js/onboarding.js"></script>',
+    });
   }
 
   @Get('flow-builder')
   async flowBuilder(@Res() reply: FastifyReply): Promise<void> {
     const data = await this.getLayoutData('FlowBuilder');
-    await this.render(reply, 'flow-builder', { ...data, title: 'Constructor de Flujos', isFlowBuilder: true });
+    let calendarEnabled = false;
+    try {
+      const calRow = await this.db.db
+        .select()
+        .from(settings)
+        .where(eq(settings.settingKey, 'calendar_enabled'))
+        .limit(1);
+      calendarEnabled = calRow.length > 0 && calRow[0].settingValue === 'true';
+    } catch { /* ignore */ }
+    await this.render(reply, 'flow-builder', {
+      ...data,
+      title: 'Constructor de Flujos',
+      isFlowBuilder: true,
+      calendarEnabled,
+      extraScripts: '<script src="/assets/js/flow-builder.js"></script>',
+      inlineScripts: `<script>const CALENDAR_ENABLED = ${calendarEnabled};</script>`,
+    });
   }
 }

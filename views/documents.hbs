@@ -1,114 +1,96 @@
-<h2 class="mb-4"><i class="bi bi-file-earmark-text me-2"></i>Documentos RAG</h2>
+<!-- Page header -->
+<div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;">
+  <div>
+    <h1 class="page-title">Documentos</h1>
+    <p class="page-subtitle">Base de conocimiento del bot &mdash; sube y gestiona documentos</p>
+  </div>
+  <button onclick="_loadDocuments(); _loadStats();" class="btn btn-secondary btn-md">
+    <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/></svg>
+    Actualizar
+  </button>
+</div>
 
-<div class="card border-0 shadow-sm mb-4">
-  <div class="card-body">
-    <form id="upload-form" enctype="multipart/form-data">
-      <div class="row align-items-end">
-        <div class="col-md-8">
-          <label class="form-label fw-bold">Subir documento</label>
-          <input type="file" class="form-control" id="doc-file" accept=".pdf,.txt,.docx">
-          <small class="text-muted">Formatos: PDF, TXT, DOCX. Máx 10MB.</small>
-        </div>
-        <div class="col-md-4">
-          <button type="submit" class="btn btn-primary w-100" id="upload-btn">
-            <i class="bi bi-cloud-upload me-1"></i> Subir y procesar
-          </button>
+<style>
+.drop-zone { border:2px dashed var(--border-color); border-radius:var(--radius-xl); padding:2rem; text-align:center; cursor:pointer; transition:border-color 0.2s ease, background 0.2s ease; background:var(--bg-elevated); }
+.drop-zone:hover, .drop-zone.drag-over { border-color:var(--color-primary); background:rgba(7,94,84,0.04); }
+.docs-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:1rem; }
+.doc-card { transition:box-shadow 0.2s, transform 0.2s; }
+.doc-card:hover { box-shadow:var(--shadow-md); transform:translateY(-1px); }
+</style>
+
+<!-- Stats row -->
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:1rem;margin-bottom:1.5rem;">
+  <div class="stat-card">
+    <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.75rem;">
+      <div class="stat-card-icon" style="background:rgba(124,58,237,0.1);"><span style="color:#7c3aed;display:flex;width:1.25rem;height:1.25rem;"><svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"/></svg></span></div>
+    </div>
+    <div class="stat-card-value" id="stat-total-docs">&mdash;</div>
+    <div class="stat-card-label">Documentos totales</div>
+  </div>
+  <div class="stat-card">
+    <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.75rem;">
+      <div class="stat-card-icon" style="background:rgba(37,99,235,0.1);"><span style="color:#2563eb;display:flex;width:1.25rem;height:1.25rem;"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M3 12v3c0 1.657 3.134 3 7 3s7-1.343 7-3v-3c0 1.657-3.134 3-7 3s-7-1.343-7-3z"/><path d="M3 7v3c0 1.657 3.134 3 7 3s7-1.343 7-3V7c0 1.657-3.134 3-7 3S3 8.657 3 7z"/><path d="M17 5c0 1.657-3.134 3-7 3S3 6.657 3 5s3.134-3 7-3 7 1.343 7 3z"/></svg></span></div>
+    </div>
+    <div class="stat-card-value" id="stat-total-vectors">&mdash;</div>
+    <div class="stat-card-label">Vectores indexados</div>
+  </div>
+  <div class="stat-card">
+    <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.75rem;">
+      <div class="stat-card-icon" style="background:rgba(22,163,74,0.1);"><span style="color:#16a34a;display:flex;width:1.25rem;height:1.25rem;"><svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/></svg></span></div>
+    </div>
+    <div class="stat-card-value" id="stat-total-size">&mdash;</div>
+    <div class="stat-card-label">Espacio usado</div>
+  </div>
+</div>
+
+<!-- Upload + Info row -->
+<div style="display:grid;grid-template-columns:1fr 300px;gap:1.25rem;margin-bottom:1.5rem;">
+  <div class="card">
+    <div class="card-header"><span style="font-size:0.9375rem;font-weight:600;color:var(--text-primary);">Subir nuevo documento</span></div>
+    <div class="card-body">
+      <div id="drop-zone" class="drop-zone">
+        <svg width="40" height="40" viewBox="0 0 20 20" fill="currentColor" style="margin:0 auto 0.875rem;display:block;color:var(--text-muted);"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd"/></svg>
+        <p style="font-size:0.9375rem;font-weight:600;color:var(--text-secondary);margin-bottom:0.375rem;" id="drop-hint">Arrastra un archivo aquí o haz clic para seleccionar</p>
+        <p style="font-size:0.8125rem;color:var(--text-muted);">PDF, DOCX, TXT &mdash; máx. 10 MB</p>
+        <input type="file" id="file-input" name="document" accept=".pdf,.docx,.txt" style="display:none;">
+      </div>
+      <div id="file-preview" style="display:none;margin-top:0.875rem;padding:0.875rem;border-radius:var(--radius-lg);border:1px solid var(--border-color);align-items:center;gap:0.75rem;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:0.875rem;font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="preview-filename"></div>
+          <div style="font-size:0.75rem;color:var(--text-muted);" id="preview-filesize"></div>
         </div>
       </div>
-    </form>
-    <div id="upload-status" class="mt-2"></div>
+      <div id="upload-progress" style="display:none;margin-top:0.875rem;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.375rem;">
+          <span style="font-size:0.8125rem;color:var(--text-secondary);">Subiendo&hellip;</span>
+          <span style="font-size:0.8125rem;font-weight:600;color:var(--text-primary);" id="upload-progress-pct">0%</span>
+        </div>
+        <div style="height:6px;border-radius:3px;background:var(--border-color);overflow:hidden;">
+          <div id="upload-progress-bar" style="height:100%;width:0%;background:var(--color-primary);border-radius:3px;transition:width 0.2s ease;"></div>
+        </div>
+      </div>
+      <button id="upload-btn" onclick="uploadDocument()" class="btn btn-primary btn-md" style="width:100%;margin-top:1rem;" disabled>
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd"/></svg>
+        Subir documento
+      </button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header"><span style="font-size:0.9375rem;font-weight:600;color:var(--text-primary);">Información</span></div>
+    <div class="card-body" style="display:flex;flex-direction:column;gap:1rem;">
+      <div style="display:flex;align-items:flex-start;gap:0.625rem;"><span class="badge badge-info" style="flex-shrink:0;margin-top:1px;">PDF</span><p style="font-size:0.8125rem;color:var(--text-secondary);">Manuales, guías, documentación técnica</p></div>
+      <div style="display:flex;align-items:flex-start;gap:0.625rem;"><span class="badge badge-info" style="flex-shrink:0;margin-top:1px;">DOCX</span><p style="font-size:0.8125rem;color:var(--text-secondary);">Políticas, procedimientos, contratos</p></div>
+      <div style="display:flex;align-items:flex-start;gap:0.625rem;"><span class="badge badge-neutral" style="flex-shrink:0;margin-top:1px;">TXT</span><p style="font-size:0.8125rem;color:var(--text-secondary);">FAQs, notas, texto plano</p></div>
+      <div class="divider"></div>
+      <p style="font-size:0.8125rem;color:var(--text-muted);line-height:1.6;">Los documentos se dividen en chunks y se indexan como vectores para búsqueda semántica.</p>
+    </div>
   </div>
 </div>
 
-<div class="card border-0 shadow-sm">
-  <div class="card-header bg-white fw-bold">Documentos indexados</div>
-  <div class="card-body p-0">
-    <table class="table table-hover mb-0">
-      <thead class="table-light">
-        <tr>
-          <th>Nombre</th>
-          <th>Tipo</th>
-          <th>Chunks</th>
-          <th>Tamaño</th>
-          <th>Fecha</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody id="doc-list">
-        <tr><td colspan="6" class="text-center text-muted py-4">Cargando...</td></tr>
-      </tbody>
-    </table>
+<!-- Documents grid -->
+<div class="card">
+  <div class="card-header"><span style="font-size:0.9375rem;font-weight:600;color:var(--text-primary);">Documentos indexados</span></div>
+  <div class="card-body">
+    <div id="documents-grid" class="docs-grid"></div>
   </div>
 </div>
-
-<script>
-document.addEventListener('DOMContentLoaded', loadDocuments);
-
-async function loadDocuments() {
-  try {
-    const res = await fetch('/api/documents');
-    const data = await res.json();
-    const tbody = document.getElementById('doc-list');
-    if (data.success && data.data.length > 0) {
-      tbody.innerHTML = data.data.map(d => `
-        <tr>
-          <td><i class="bi bi-file-earmark me-1"></i>${d.original_name || d.originalName || d.filename}</td>
-          <td><span class="badge bg-secondary">${(d.file_type || d.fileType || '').toUpperCase()}</span></td>
-          <td>${d.chunk_count ?? d.chunkCount ?? '—'}</td>
-          <td>${formatSize(d.file_size || d.fileSize || 0)}</td>
-          <td>${d.created_at || d.createdAt ? new Date(d.created_at || d.createdAt).toLocaleDateString('es-CO') : '—'}</td>
-          <td>
-            <button class="btn btn-sm btn-outline-danger" onclick="deleteDoc(${d.id})">
-              <i class="bi bi-trash"></i>
-            </button>
-          </td>
-        </tr>
-      `).join('');
-    } else {
-      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">No hay documentos</td></tr>';
-    }
-  } catch (e) { console.error(e); }
-}
-
-async function deleteDoc(id) {
-  if (!confirm('¿Eliminar este documento y sus vectores?')) return;
-  await fetch(`/api/documents/${id}`, { method: 'DELETE' });
-  loadDocuments();
-}
-
-function formatSize(bytes) {
-  if (bytes < 1024) return bytes + ' B';
-  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
-  return (bytes / 1048576).toFixed(1) + ' MB';
-}
-
-document.getElementById('upload-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const file = document.getElementById('doc-file').files[0];
-  if (!file) return;
-  const btn = document.getElementById('upload-btn');
-  const status = document.getElementById('upload-status');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Procesando...';
-  status.innerHTML = '';
-
-  const formData = new FormData();
-  formData.append('file', file);
-
-  try {
-    const res = await fetch('/api/documents/upload', { method: 'POST', body: formData });
-    const data = await res.json();
-    if (data.success) {
-      status.innerHTML = `<div class="alert alert-success py-1">Documento procesado: ${data.chunkCount ?? '?'} chunks indexados.</div>`;
-      loadDocuments();
-    } else {
-      status.innerHTML = `<div class="alert alert-danger py-1">${data.message || 'Error al procesar'}</div>`;
-    }
-  } catch (err) {
-    status.innerHTML = `<div class="alert alert-danger py-1">Error de conexión</div>`;
-  }
-  btn.disabled = false;
-  btn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i> Subir y procesar';
-  document.getElementById('doc-file').value = '';
-});
-</script>

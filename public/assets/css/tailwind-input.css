@@ -1,0 +1,10 @@
+@import "tailwindcss";
+
+@variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-primary: #075E54;
+  --color-secondary: #128C7E;
+  --color-accent: #1eb854;
+  --color-whatsapp-bg: #ECE5DD;
+}

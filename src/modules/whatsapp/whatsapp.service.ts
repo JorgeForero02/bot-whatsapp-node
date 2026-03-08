@@ -26,56 +26,73 @@ export class WhatsAppService {
   ) {}
 
   async sendMessage(to: string, message: string): Promise<string | null> {
-    const creds = await this.credentials.getWhatsAppCredentials();
-    const apiVersion = this.config.get<string>('whatsapp.apiVersion') ?? 'v18.0';
-    const url = `${this.config.get<string>('whatsapp.baseUrl')}/${apiVersion}/${creds.phoneNumberId}/messages`;
+    try {
+      const creds = await this.credentials.getWhatsAppCredentials();
+      const apiVersion = this.config.get<string>('whatsapp.apiVersion') ?? 'v18.0';
+      const url = `${this.config.get<string>('whatsapp.baseUrl')}/${apiVersion}/${creds.phoneNumberId}/messages`;
 
-    const { data } = await firstValueFrom(
-      this.http.post(url, {
-        messaging_product: 'whatsapp',
-        to,
-        type: 'text',
-        text: { body: message },
-      }, {
-        headers: {
-          Authorization: `Bearer ${creds.accessToken}`,
-          'Content-Type': 'application/json',
-        },
-      }),
-    );
+      const { data } = await firstValueFrom(
+        this.http.post(url, {
+          messaging_product: 'whatsapp',
+          to,
+          type: 'text',
+          text: { body: message },
+        }, {
+          headers: {
+            Authorization: `Bearer ${creds.accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        }),
+      );
 
-    const messageId = (data as { messages?: Array<{ id: string }> }).messages?.[0]?.id ?? null;
-    this.logger.log(`WhatsApp: Message sent to=${to} id=${messageId}`);
-    return messageId;
+      const messageId = (data as { messages?: Array<{ id: string }> }).messages?.[0]?.id ?? null;
+      this.logger.log(`WhatsApp: Message sent to=${to} id=${messageId}`);
+      return messageId;
+    } catch (error: unknown) {
+      const axiosError = error as { response?: { data?: unknown; status?: number } };
+      const detail = axiosError?.response?.data ?? (error instanceof Error ? error.message : '');
+      this.logger.error(`WhatsApp Send Message Error (status=${axiosError?.response?.status})`, JSON.stringify(detail));
+      return null;
+    }
   }
 
   async getMediaUrl(mediaId: string): Promise<string | null> {
-    const creds = await this.credentials.getWhatsAppCredentials();
-    const apiVersion = this.config.get<string>('whatsapp.apiVersion') ?? 'v18.0';
-    const url = `${this.config.get<string>('whatsapp.baseUrl')}/${apiVersion}/${mediaId}`;
+    try {
+      const creds = await this.credentials.getWhatsAppCredentials();
+      const apiVersion = this.config.get<string>('whatsapp.apiVersion') ?? 'v18.0';
+      const url = `${this.config.get<string>('whatsapp.baseUrl')}/${apiVersion}/${mediaId}`;
 
-    const { data } = await firstValueFrom(
-      this.http.get(url, {
-        headers: { Authorization: `Bearer ${creds.accessToken}` },
-      }),
-    );
+      const { data } = await firstValueFrom(
+        this.http.get(url, {
+          headers: { Authorization: `Bearer ${creds.accessToken}` },
+        }),
+      );
 
-    return (data as { url?: string }).url ?? null;
+      return (data as { url?: string }).url ?? null;
+    } catch (error: unknown) {
+      this.logger.error('WhatsApp Get Media URL Error', error instanceof Error ? error.message : '');
+      return null;
+    }
   }
 
   async downloadMedia(mediaId: string): Promise<Buffer> {
     const mediaUrl = await this.getMediaUrl(mediaId);
     if (!mediaUrl) throw new Error('Media URL not found');
 
-    const creds = await this.credentials.getWhatsAppCredentials();
-    const { data } = await firstValueFrom(
-      this.http.get<ArrayBuffer>(mediaUrl, {
-        headers: { Authorization: `Bearer ${creds.accessToken}` },
-        responseType: 'arraybuffer',
-      }),
-    );
+    try {
+      const creds = await this.credentials.getWhatsAppCredentials();
+      const { data } = await firstValueFrom(
+        this.http.get<ArrayBuffer>(mediaUrl, {
+          headers: { Authorization: `Bearer ${creds.accessToken}` },
+          responseType: 'arraybuffer',
+        }),
+      );
 
-    return Buffer.from(data);
+      return Buffer.from(data);
+    } catch (error: unknown) {
+      this.logger.error('WhatsApp Download Media Error', error instanceof Error ? error.message : '');
+      throw error; // re-throw so audio handler can send fallback message
+    }
   }
 
   async markAsRead(messageId: string): Promise<boolean> {
@@ -98,7 +115,9 @@ export class WhatsAppService {
       );
       return true;
     } catch (error: unknown) {
-      this.logger.error('WhatsApp Mark Read Error', error instanceof Error ? error.message : '');
+      const axiosError = error as { response?: { data?: unknown; status?: number } };
+      const detail = axiosError?.response?.data ?? (error instanceof Error ? error.message : '');
+      this.logger.error(`WhatsApp Mark Read Error (status=${axiosError?.response?.status})`, JSON.stringify(detail));
       return false;
     }
   }

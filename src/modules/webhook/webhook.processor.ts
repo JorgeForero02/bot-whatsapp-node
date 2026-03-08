@@ -12,6 +12,7 @@ import { ClassicBotService } from '../classic-bot/classic-bot.service';
 import { DatabaseService } from '../database/database.service';
 import { settings } from '../database/schema/settings.schema';
 import { webhookQueue } from '../database/schema/webhook-queue.schema';
+import { messages } from '../database/schema/messages.schema';
 
 export interface WebhookJobData {
   messageId: string;
@@ -52,31 +53,27 @@ export class WebhookQueueProcessor extends WorkerHost {
     }
 
     try {
-      await this.whatsapp.markAsRead(data.messageId);
-
-      const conv = await this.conversation.getOrCreateConversation(
-        data.from,
-        data.contactName,
-      );
-
-      if (!conv.aiEnabled) {
-        this.logger.log(`AI disabled for conversation ${conv.id}, skipping`);
-        if (data.dbQueueId) await this.updateQueueStatus(data.dbQueueId, 'completed');
-        return;
-      }
+      const botMode = await this.getBotMode();
 
       const unsupportedMedia = ['image', 'video', 'document', 'sticker', 'location', 'contacts'];
       if (unsupportedMedia.includes(data.type)) {
-        this.logger.log(`Unsupported media type ${data.type} from ${data.from}`);
-        await this.conversation.addMessage(conv.id, 'user', `[${data.type}]`, {
-          messageId: data.messageId,
-          mediaType: data.type as 'image' | 'video' | 'document',
-        });
-        const mediaMsg = 'Por el momento solo puedo procesar mensajes de texto y audio. ¿Podrías escribirme tu consulta?';
+        const conv = await this.conversation.getOrCreateConversation(data.from, data.contactName);
+        const mediaMsg = 'Lo siento, por el momento solo puedo procesar mensajes de *texto*. Por favor, envíame tu consulta en un mensaje de texto.';
         await this.conversation.addMessage(conv.id, 'bot', mediaMsg);
         await this.whatsapp.sendMessage(data.from, mediaMsg);
         if (data.dbQueueId) await this.updateQueueStatus(data.dbQueueId, 'completed');
         return;
+      }
+
+      if (data.type === 'audio' && data.audioId) {
+        if (botMode === 'classic') {
+          const conv = await this.conversation.getOrCreateConversation(data.from, data.contactName);
+          const audioMsg = 'Lo siento, en este modo solo puedo procesar mensajes de *texto*. Por favor, escribe tu consulta.';
+          await this.conversation.addMessage(conv.id, 'bot', audioMsg);
+          await this.whatsapp.sendMessage(data.from, audioMsg);
+          if (data.dbQueueId) await this.updateQueueStatus(data.dbQueueId, 'completed');
+          return;
+        }
       }
 
       let userText = data.text;
@@ -84,13 +81,13 @@ export class WebhookQueueProcessor extends WorkerHost {
       if (data.type === 'audio' && data.audioId) {
         try {
           const audioContent = await this.whatsapp.downloadMedia(data.audioId);
-          userText = await this.openai.transcribeAudio(audioContent);
+          userText = '[Audio] ' + await this.openai.transcribeAudio(audioContent);
           this.logger.log(`Transcribed audio: ${userText.substring(0, 50)}...`);
         } catch (error: unknown) {
           this.logger.error('Audio transcription failed', error instanceof Error ? error.message : '');
           await this.whatsapp.sendMessage(
             data.from,
-            'No pude procesar tu mensaje de audio. ¿Podrías escribirme?',
+            'Lo siento, no pude procesar el audio. Por favor, envía un mensaje de texto.',
           );
           if (data.dbQueueId) await this.updateQueueStatus(data.dbQueueId, 'failed', 'Audio transcription failed');
           return;
@@ -102,12 +99,51 @@ export class WebhookQueueProcessor extends WorkerHost {
         return;
       }
 
+      const conv = await this.conversation.getOrCreateConversation(
+        data.from,
+        data.contactName,
+      );
+
+      // ── Duplicate message_id check ──
+      if (data.messageId) {
+        try {
+          const existingMsg = await this.db.db
+            .select({ id: messages.id })
+            .from(messages)
+            .where(eq(messages.messageId, data.messageId))
+            .limit(1);
+          if (existingMsg.length > 0) {
+            this.logger.log(`Duplicate message_id ${data.messageId}, skipping`);
+            if (data.dbQueueId) await this.updateQueueStatus(data.dbQueueId, 'completed');
+            return;
+          }
+        } catch { /* allow processing if check fails */ }
+      }
+
       await this.conversation.addMessage(conv.id, 'user', userText, {
         messageId: data.messageId,
         mediaType: data.type as 'text' | 'audio',
       });
 
-      const botMode = await this.getBotMode();
+      await this.whatsapp.markAsRead(data.messageId);
+
+      // ── Check for human request keywords ──
+      if (this.isRequestingHuman(userText)) {
+        const humanMsg = 'Enseguida te comunico con alguien de nuestro equipo.';
+        await this.conversation.addMessage(conv.id, 'bot', humanMsg);
+        await this.whatsapp.sendMessage(data.from, humanMsg);
+        await this.conversation.updateStatus(conv.id, 'pending_human');
+        await this.conversation.toggleAI(conv.id, false);
+        if (data.dbQueueId) await this.updateQueueStatus(data.dbQueueId, 'completed');
+        return;
+      }
+
+      // ── Check if AI is disabled or pending human ──
+      if (conv.status === 'pending_human' || !conv.aiEnabled) {
+        this.logger.log(`AI disabled for conversation ${conv.id}, skipping`);
+        if (data.dbQueueId) await this.updateQueueStatus(data.dbQueueId, 'completed');
+        return;
+      }
 
       if (botMode === 'classic') {
         await this.handleClassicMode(data.from, userText, conv.id, data.contactName);
@@ -192,37 +228,39 @@ export class WebhookQueueProcessor extends WorkerHost {
   }
 
   private async handleClassicMode(from: string, userText: string, conversationId: number, contactName: string): Promise<void> {
+    const calendarUnavailableMsg = 'Lo sentimos, ese servicio no está activo en este momento. Presiona *menu* para volver.';
+
     try {
       // ── 1. Check for active classic calendar session ──
-      const calendarResponse = await this.classicCalendar.handleMessage(from, userText, contactName);
-      if (calendarResponse) {
-        this.logger.log(`Classic calendar flow handled for ${from}`);
-        await this.conversation.addMessage(conversationId, 'bot', calendarResponse);
-        await this.whatsapp.sendMessage(from, calendarResponse);
-        return;
+      try {
+        const calendarResponse = await this.classicCalendar.handleMessage(from, userText, contactName);
+        if (calendarResponse) {
+          this.logger.log(`Classic calendar flow handled for ${from}`);
+          await this.sendBotResponse(conversationId, from, calendarResponse);
+          return;
+        }
+      } catch (error: unknown) {
+        this.logger.error('Classic calendar session error', error instanceof Error ? error.message : '');
       }
 
       // ── 2. Process through ClassicBotService (nodes/options) ──
       const result = await this.classicBot.processMessage(from, userText);
 
-      if (result.type === 'response' || result.type === 'fallback') {
+      if (result.type === 'response' || result.type === 'fallback' || result.type === 'farewell') {
         const response = result.response || 'Escribe el número de tu opción o escríbeme lo que necesitas.';
-        await this.conversation.addMessage(conversationId, 'bot', response);
-        await this.whatsapp.sendMessage(from, response);
+        await this.sendBotResponse(conversationId, from, response);
         return;
       }
 
       // ── 3. Calendar intent detected by classic bot ──
       if (result.type === 'calendar') {
+        const intent = result.calendarIntent ?? 'schedule';
         try {
           const menuResponse = await this.classicCalendar.startCalendarMenu(from);
-          await this.conversation.addMessage(conversationId, 'bot', menuResponse);
-          await this.whatsapp.sendMessage(from, menuResponse);
+          await this.sendBotResponse(conversationId, from, menuResponse);
         } catch (error: unknown) {
           this.logger.error('Classic calendar start failed', error instanceof Error ? error.message : '');
-          const unavailableMsg = 'Lo sentimos, ese servicio no está activo en este momento. Presiona *menu* para volver.';
-          await this.conversation.addMessage(conversationId, 'bot', unavailableMsg);
-          await this.whatsapp.sendMessage(from, unavailableMsg);
+          await this.sendBotResponse(conversationId, from, calendarUnavailableMsg);
         }
         return;
       }
@@ -230,8 +268,7 @@ export class WebhookQueueProcessor extends WorkerHost {
       this.logger.error('Classic bot error', error instanceof Error ? error.message : '');
       const errorMsg = 'Lo siento, ocurrió un error procesando tu mensaje. Por favor intenta de nuevo.';
       try {
-        await this.conversation.addMessage(conversationId, 'bot', errorMsg);
-        await this.whatsapp.sendMessage(from, errorMsg);
+        await this.sendBotResponse(conversationId, from, errorMsg);
       } catch { /* best effort */ }
     }
   }
@@ -268,6 +305,44 @@ export class WebhookQueueProcessor extends WorkerHost {
       // Fall through to default
     }
     return 'ai';
+  }
+
+  private isRequestingHuman(text: string): boolean {
+    const humanKeywords = [
+      'hablar con humano', 'hablar con una persona', 'hablar con operador',
+      'quiero un humano', 'atención humana', 'operador', 'agente humano',
+      'hablar con alguien', 'persona real', 'representante',
+    ];
+    const lower = text.toLowerCase();
+    return humanKeywords.some((kw) => lower.includes(kw));
+  }
+
+  private async sendBotResponse(conversationId: number, phone: string, response: string): Promise<void> {
+    try {
+      await this.conversation.addMessage(conversationId, 'bot', response);
+    } catch (error: unknown) {
+      this.logger.error('Failed to save bot message to DB', error instanceof Error ? error.message : '');
+    }
+    try {
+      await this.whatsapp.sendMessage(phone, response);
+    } catch (error: unknown) {
+      this.logger.error('Failed to send WhatsApp message', error instanceof Error ? error.message : '');
+    }
+  }
+
+  private async handleInsufficientFunds(error: unknown): Promise<boolean> {
+    if (error instanceof Error && error.message.includes('INSUFFICIENT_FUNDS')) {
+      try {
+        const existing = await this.db.db.select().from(settings).where(eq(settings.settingKey, 'openai_status')).limit(1);
+        if (existing.length > 0) {
+          await this.db.db.update(settings).set({ settingValue: 'insufficient_funds' }).where(eq(settings.settingKey, 'openai_status'));
+        } else {
+          await this.db.db.insert(settings).values({ settingKey: 'openai_status', settingValue: 'insufficient_funds' });
+        }
+      } catch { /* best effort */ }
+      return true;
+    }
+    return false;
   }
 
   private async updateQueueStatus(

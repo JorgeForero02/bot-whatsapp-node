@@ -1,131 +1,144 @@
-<h2 class="mb-4"><i class="bi bi-calendar3 me-2"></i>Configuración de Calendario</h2>
-
-<div class="row">
-  <div class="col-md-8">
-    <div class="card border-0 shadow-sm mb-4">
-      <div class="card-header bg-white fw-bold">General</div>
-      <div class="card-body">
-        <div class="row mb-3">
-          <div class="col-md-6">
-            <label class="form-label">Zona horaria</label>
-            <input type="text" class="form-control" id="cal-timezone" value="America/Bogota">
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">Duración por defecto (min)</label>
-            <input type="number" class="form-control" id="cal-duration" value="60">
-          </div>
-        </div>
-        <div class="row mb-3">
-          <div class="col-md-6">
-            <label class="form-label">Máx eventos por día</label>
-            <input type="number" class="form-control" id="cal-max-events" value="8">
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">Horas mínimas de antelación</label>
-            <input type="number" class="form-control" id="cal-min-advance" value="1">
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card border-0 shadow-sm mb-4">
-      <div class="card-header bg-white fw-bold">Horario de Atención</div>
-      <div class="card-body">
-        <div id="business-hours">
-          <div class="row mb-2 align-items-center" data-day="monday">
-            <div class="col-3"><div class="form-check"><input class="form-check-input bh-enabled" type="checkbox" checked><label class="form-check-label">Lunes</label></div></div>
-            <div class="col-4"><input type="time" class="form-control form-control-sm bh-start" value="08:00"></div>
-            <div class="col-1 text-center">a</div>
-            <div class="col-4"><input type="time" class="form-control form-control-sm bh-end" value="18:00"></div>
-          </div>
-          <div class="row mb-2 align-items-center" data-day="tuesday">
-            <div class="col-3"><div class="form-check"><input class="form-check-input bh-enabled" type="checkbox" checked><label class="form-check-label">Martes</label></div></div>
-            <div class="col-4"><input type="time" class="form-control form-control-sm bh-start" value="08:00"></div>
-            <div class="col-1 text-center">a</div>
-            <div class="col-4"><input type="time" class="form-control form-control-sm bh-end" value="18:00"></div>
-          </div>
-          <div class="row mb-2 align-items-center" data-day="wednesday">
-            <div class="col-3"><div class="form-check"><input class="form-check-input bh-enabled" type="checkbox" checked><label class="form-check-label">Miércoles</label></div></div>
-            <div class="col-4"><input type="time" class="form-control form-control-sm bh-start" value="08:00"></div>
-            <div class="col-1 text-center">a</div>
-            <div class="col-4"><input type="time" class="form-control form-control-sm bh-end" value="18:00"></div>
-          </div>
-          <div class="row mb-2 align-items-center" data-day="thursday">
-            <div class="col-3"><div class="form-check"><input class="form-check-input bh-enabled" type="checkbox" checked><label class="form-check-label">Jueves</label></div></div>
-            <div class="col-4"><input type="time" class="form-control form-control-sm bh-start" value="08:00"></div>
-            <div class="col-1 text-center">a</div>
-            <div class="col-4"><input type="time" class="form-control form-control-sm bh-end" value="18:00"></div>
-          </div>
-          <div class="row mb-2 align-items-center" data-day="friday">
-            <div class="col-3"><div class="form-check"><input class="form-check-input bh-enabled" type="checkbox" checked><label class="form-check-label">Viernes</label></div></div>
-            <div class="col-4"><input type="time" class="form-control form-control-sm bh-start" value="08:00"></div>
-            <div class="col-1 text-center">a</div>
-            <div class="col-4"><input type="time" class="form-control form-control-sm bh-end" value="18:00"></div>
-          </div>
-          <div class="row mb-2 align-items-center" data-day="saturday">
-            <div class="col-3"><div class="form-check"><input class="form-check-input bh-enabled" type="checkbox"><label class="form-check-label">Sábado</label></div></div>
-            <div class="col-4"><input type="time" class="form-control form-control-sm bh-start" value="09:00" disabled></div>
-            <div class="col-1 text-center">a</div>
-            <div class="col-4"><input type="time" class="form-control form-control-sm bh-end" value="13:00" disabled></div>
-          </div>
-          <div class="row mb-2 align-items-center" data-day="sunday">
-            <div class="col-3"><div class="form-check"><input class="form-check-input bh-enabled" type="checkbox"><label class="form-check-label">Domingo</label></div></div>
-            <div class="col-4"><input type="time" class="form-control form-control-sm bh-start" value="09:00" disabled></div>
-            <div class="col-1 text-center">a</div>
-            <div class="col-4"><input type="time" class="form-control form-control-sm bh-end" value="13:00" disabled></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <button class="btn btn-primary" onclick="saveCalendarSettings()">
-      <i class="bi bi-check-lg me-1"></i> Guardar
-    </button>
-    <div id="cal-save-status" class="mt-2"></div>
-  </div>
+<div class="page-header">
+    <h1 class="page-title">Configuración de Google Calendar</h1>
+    <p class="page-subtitle">Administra horarios de atención y preferencias de agendamiento</p>
 </div>
 
-<script>
-document.querySelectorAll('.bh-enabled').forEach(cb => {
-  cb.addEventListener('change', function() {
-    const row = this.closest('[data-day]');
-    row.querySelectorAll('input[type="time"]').forEach(i => i.disabled = !this.checked);
-  });
-});
+<div class="settings-grid">
+    <div class="settings-main">
+        <form id="calendar-settings-form">
+        <div class="card">
+          <div class="card-header"><span class="card-title">Horarios de Atención</span></div>
+          <div class="card-body">
+            <div class="schedule-table">
+                <div class="schedule-header">
+                    <div class="form-label">Día</div>
+                    <div class="form-label" style="text-align:center;">Activo</div>
+                    <div class="form-label">Hora Inicio</div>
+                    <div class="form-label">Hora Fin</div>
+                </div>
 
-async function saveCalendarSettings() {
-  const businessHours = {};
-  document.querySelectorAll('[data-day]').forEach(row => {
-    const day = row.dataset.day;
-    const enabled = row.querySelector('.bh-enabled').checked;
-    if (enabled) {
-      businessHours[day] = {
-        start: row.querySelector('.bh-start').value,
-        end: row.querySelector('.bh-end').value
-      };
-    } else {
-      businessHours[day] = null;
-    }
-  });
+                <div class="schedule-row">
+                    <span class="form-label" style="margin-bottom:0;align-self:center;">Lunes</span>
+                    <div style="display:flex;justify-content:center;align-items:center;">
+                        <label class="toggle"><input type="checkbox" id="monday-enabled" name="business_hours[monday][enabled]" onchange="toggleDayInputs('monday')"><span class="toggle-thumb"></span></label>
+                    </div>
+                    <input type="time" id="monday-start" name="business_hours[monday][start]" class="form-input day-time-input" disabled>
+                    <input type="time" id="monday-end" name="business_hours[monday][end]" class="form-input day-time-input" disabled>
+                </div>
+                <div class="schedule-row">
+                    <span class="form-label" style="margin-bottom:0;align-self:center;">Martes</span>
+                    <div style="display:flex;justify-content:center;align-items:center;">
+                        <label class="toggle"><input type="checkbox" id="tuesday-enabled" name="business_hours[tuesday][enabled]" onchange="toggleDayInputs('tuesday')"><span class="toggle-thumb"></span></label>
+                    </div>
+                    <input type="time" id="tuesday-start" name="business_hours[tuesday][start]" class="form-input day-time-input" disabled>
+                    <input type="time" id="tuesday-end" name="business_hours[tuesday][end]" class="form-input day-time-input" disabled>
+                </div>
+                <div class="schedule-row">
+                    <span class="form-label" style="margin-bottom:0;align-self:center;">Miércoles</span>
+                    <div style="display:flex;justify-content:center;align-items:center;">
+                        <label class="toggle"><input type="checkbox" id="wednesday-enabled" name="business_hours[wednesday][enabled]" onchange="toggleDayInputs('wednesday')"><span class="toggle-thumb"></span></label>
+                    </div>
+                    <input type="time" id="wednesday-start" name="business_hours[wednesday][start]" class="form-input day-time-input" disabled>
+                    <input type="time" id="wednesday-end" name="business_hours[wednesday][end]" class="form-input day-time-input" disabled>
+                </div>
+                <div class="schedule-row">
+                    <span class="form-label" style="margin-bottom:0;align-self:center;">Jueves</span>
+                    <div style="display:flex;justify-content:center;align-items:center;">
+                        <label class="toggle"><input type="checkbox" id="thursday-enabled" name="business_hours[thursday][enabled]" onchange="toggleDayInputs('thursday')"><span class="toggle-thumb"></span></label>
+                    </div>
+                    <input type="time" id="thursday-start" name="business_hours[thursday][start]" class="form-input day-time-input" disabled>
+                    <input type="time" id="thursday-end" name="business_hours[thursday][end]" class="form-input day-time-input" disabled>
+                </div>
+                <div class="schedule-row">
+                    <span class="form-label" style="margin-bottom:0;align-self:center;">Viernes</span>
+                    <div style="display:flex;justify-content:center;align-items:center;">
+                        <label class="toggle"><input type="checkbox" id="friday-enabled" name="business_hours[friday][enabled]" onchange="toggleDayInputs('friday')"><span class="toggle-thumb"></span></label>
+                    </div>
+                    <input type="time" id="friday-start" name="business_hours[friday][start]" class="form-input day-time-input" disabled>
+                    <input type="time" id="friday-end" name="business_hours[friday][end]" class="form-input day-time-input" disabled>
+                </div>
+                <div class="schedule-row">
+                    <span class="form-label" style="margin-bottom:0;align-self:center;">Sábado</span>
+                    <div style="display:flex;justify-content:center;align-items:center;">
+                        <label class="toggle"><input type="checkbox" id="saturday-enabled" name="business_hours[saturday][enabled]" onchange="toggleDayInputs('saturday')"><span class="toggle-thumb"></span></label>
+                    </div>
+                    <input type="time" id="saturday-start" name="business_hours[saturday][start]" class="form-input day-time-input" disabled>
+                    <input type="time" id="saturday-end" name="business_hours[saturday][end]" class="form-input day-time-input" disabled>
+                </div>
+                <div class="schedule-row">
+                    <span class="form-label" style="margin-bottom:0;align-self:center;">Domingo</span>
+                    <div style="display:flex;justify-content:center;align-items:center;">
+                        <label class="toggle"><input type="checkbox" id="sunday-enabled" name="business_hours[sunday][enabled]" onchange="toggleDayInputs('sunday')"><span class="toggle-thumb"></span></label>
+                    </div>
+                    <input type="time" id="sunday-start" name="business_hours[sunday][start]" class="form-input day-time-input" disabled>
+                    <input type="time" id="sunday-end" name="business_hours[sunday][end]" class="form-input day-time-input" disabled>
+                </div>
+            </div>
+          </div>
+        </div>
 
-  try {
-    const res = await fetch('/api/settings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        calendar_timezone: document.getElementById('cal-timezone').value,
-        calendar_default_duration: document.getElementById('cal-duration').value,
-        calendar_max_events_per_day: document.getElementById('cal-max-events').value,
-        calendar_min_advance_hours: document.getElementById('cal-min-advance').value,
-        calendar_business_hours: JSON.stringify(businessHours),
-      })
-    });
-    const data = await res.json();
-    document.getElementById('cal-save-status').innerHTML = data.success
-      ? '<div class="alert alert-success py-1">Guardado</div>'
-      : '<div class="alert alert-danger py-1">Error</div>';
-  } catch (e) {
-    document.getElementById('cal-save-status').innerHTML = '<div class="alert alert-danger py-1">Error de conexión</div>';
-  }
-}
-</script>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Configuración de Citas</span></div>
+          <div class="card-body">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="timezone" class="form-label">Zona Horaria</label>
+                    <select id="timezone" name="timezone" class="form-select">
+                        <option value="America/Bogota">América/Bogotá (GMT-5)</option>
+                        <option value="America/Mexico_City">América/Ciudad de México (GMT-6)</option>
+                        <option value="America/New_York">América/Nueva York (GMT-5)</option>
+                        <option value="America/Los_Angeles">América/Los Ángeles (GMT-8)</option>
+                        <option value="America/Chicago">América/Chicago (GMT-6)</option>
+                        <option value="America/Lima">América/Lima (GMT-5)</option>
+                        <option value="America/Buenos_Aires">América/Buenos Aires (GMT-3)</option>
+                        <option value="America/Santiago">América/Santiago (GMT-3)</option>
+                        <option value="Europe/Madrid">Europa/Madrid (GMT+1)</option>
+                        <option value="Europe/London">Europa/Londres (GMT+0)</option>
+                    </select>
+                    <p class="form-hint">Zona horaria del negocio para las citas.</p>
+                </div>
+                <div class="form-group">
+                    <label for="default_duration" class="form-label">Duración Predeterminada (min)</label>
+                    <input type="number" id="default_duration" name="default_duration_minutes" min="1" step="1" class="form-input">
+                    <p class="form-hint">Tiempo por defecto para cada cita.</p>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="max_events" class="form-label">Máx. Citas por Día</label>
+                    <input type="number" id="max_events" name="max_events_per_day" min="1" step="1" class="form-input">
+                    <p class="form-hint">Límite diario de agendamientos.</p>
+                </div>
+                <div class="form-group">
+                    <label for="min_advance" class="form-label">Anticipación Mínima (horas)</label>
+                    <input type="number" id="min_advance" name="min_advance_hours" min="0" step="1" class="form-input">
+                    <p class="form-hint">Tiempo mínimo requerido para agendar.</p>
+                </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;gap:0.75rem;flex-wrap:wrap;">
+            <button type="button" onclick="loadSettings()" class="btn btn-secondary btn-md">Cancelar</button>
+            <button type="submit" class="btn btn-primary btn-md">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                Guardar Configuración
+            </button>
+        </div>
+        </form>
+    </div>
+
+    <div class="settings-sidebar">
+        <div class="card" style="position:sticky;top:calc(var(--topbar-height) + 1rem);">
+          <div class="card-header"><span class="card-title">Información</span></div>
+          <div class="card-body">
+            <div class="form-stack">
+                <p class="form-hint">Los cambios se aplican inmediatamente al bot de WhatsApp.</p>
+                <p class="form-hint">Al menos un día debe estar activo para permitir agendamientos.</p>
+                <p class="form-hint">La hora de fin debe ser posterior a la de inicio.</p>
+                <p class="form-hint">La configuración se guarda en la base de datos.</p>
+            </div>
+          </div>
+        </div>
+    </div>
+</div>

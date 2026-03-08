@@ -111,13 +111,15 @@ export class OnboardingService {
     }
 
     try {
-      const prompt = await this.db.db
+      const botName = await this.db.db
         .select()
         .from(settings)
-        .where(eq(settings.settingKey, 'system_prompt'))
+        .where(eq(settings.settingKey, 'bot_name'))
         .limit(1);
 
-      if (prompt.length > 0 && prompt[0].settingValue) {
+      // Only mark personality complete if bot_name was customized from the seed default
+      const DEFAULT_BOT_NAME = 'WhatsApp Bot';
+      if (botName.length > 0 && botName[0].settingValue && botName[0].settingValue !== DEFAULT_BOT_NAME) {
         await this.completeStep('bot_personality');
       }
 

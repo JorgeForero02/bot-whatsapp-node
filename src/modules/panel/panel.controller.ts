@@ -1,4 +1,6 @@
 import { Controller, Get, Post, Delete, Body, Param, Query, Req, Logger, HttpCode, HttpStatus, HttpException } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { FastifyRequest } from 'fastify';
 import { writeFile, unlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -11,6 +13,7 @@ import { CredentialService } from '../credentials/credential.service';
 import { FlowBuilderService } from '../classic-bot/flow-builder.service';
 import { ClassicBotService } from '../classic-bot/classic-bot.service';
 import { WhatsAppService } from '../whatsapp/whatsapp.service';
+import { GoogleCalendarService } from '../calendar/google-calendar.service';
 import { eq } from 'drizzle-orm';
 import { settings } from '../database/schema/settings.schema';
 import { conversations } from '../database/schema/conversations.schema';
@@ -30,6 +33,8 @@ export class PanelController {
     private readonly flowBuilder: FlowBuilderService,
     private readonly classicBot: ClassicBotService,
     private readonly whatsapp: WhatsAppService,
+    private readonly googleCalendar: GoogleCalendarService,
+    @InjectQueue('webhook-queue') private readonly webhookQueue: Queue,
   ) {}
 
   @Get('dashboard-stats')
@@ -100,7 +105,7 @@ export class PanelController {
     return { success: true };
   }
 
-  @Post('upload')
+  @Post('documents/upload')
   @HttpCode(HttpStatus.OK)
   async uploadDocument(@Req() req: FastifyRequest): Promise<Record<string, unknown>> {
     const file = await (req as FastifyRequest & { file: () => Promise<{ filename: string; mimetype: string; file: NodeJS.ReadableStream } | undefined> }).file();
@@ -294,9 +299,12 @@ export class PanelController {
 
   @Post('simulate-flow')
   @HttpCode(HttpStatus.OK)
-  async simulateFlow(@Body() body: { message: string }): Promise<Record<string, unknown>> {
+  async simulateFlow(@Body() body: { message: string; reset?: boolean }): Promise<Record<string, unknown>> {
+    if (body.reset) {
+      await this.classicBot.clearSession('simulator');
+      return { success: true, data: { type: 'reset', response: 'Simulador reiniciado' } };
+    }
     const result = await this.classicBot.processMessage('simulator', body.message);
-    await this.classicBot.clearSession('simulator');
     return { success: true, data: result };
   }
 
@@ -327,7 +335,7 @@ export class PanelController {
     if (!doc) {
       throw new HttpException('Document not found', HttpStatus.NOT_FOUND);
     }
-    return { success: true, data: { id: doc['id'], name: doc['original_name'], content: doc['content_text'] } };
+    return { success: true, data: { id: doc['id'], name: doc['originalName'], content: doc['contentText'] } };
   }
 
   // ── Credentials read (masked) ──
@@ -350,7 +358,7 @@ export class PanelController {
 
     try {
       const go = await this.credentials.getGoogleOAuthCredentials();
-      google = { configured: !!(go.accessToken && go.clientId) } as typeof google;
+      google = { configured: !!(go.clientId && (go.accessToken || go.refreshToken)) } as typeof google;
     } catch { /* not configured */ }
 
     return { success: true, data: { whatsapp, openai, google } };
@@ -393,18 +401,46 @@ export class PanelController {
     return { success: true };
   }
 
+  // ── Calendar Events (for dashboard) ──
+
+  @Get('calendar-events')
+  async getCalendarEvents(): Promise<Record<string, unknown>> {
+    try {
+      const events = await this.googleCalendar.listUpcomingEvents(5);
+      return { success: true, data: events.items ?? [] };
+    } catch (error: unknown) {
+      this.logger.warn('Failed to fetch calendar events', error instanceof Error ? error.message : '');
+      return { success: true, data: [] };
+    }
+  }
+
   // ── Test Connection ──
 
   @Get('test-connection')
-  async testConnection(): Promise<Record<string, unknown>> {
+  async testConnection(@Query('service') service?: string): Promise<Record<string, unknown>> {
     try {
+      if (service === 'openai') {
+        const creds = await this.credentials.getOpenAICredentials();
+        if (!creds.apiKey) {
+          return { success: false, error: 'OpenAI API key no configurado' };
+        }
+        return { success: true, message: 'OpenAI configurado correctamente' };
+      }
+      if (service === 'google') {
+        const creds = await this.credentials.getGoogleOAuthCredentials();
+        if (!creds.clientId || (!creds.accessToken && !creds.refreshToken)) {
+          return { success: false, error: 'Credenciales de Google no configuradas' };
+        }
+        return { success: true, message: 'Google Calendar configurado correctamente' };
+      }
+      // Default: whatsapp
       const creds = await this.credentials.getWhatsAppCredentials();
       if (!creds.accessToken || !creds.phoneNumberId) {
-        return { success: false, error: 'WhatsApp credentials not configured' };
+        return { success: false, error: 'Credenciales de WhatsApp no configuradas' };
       }
-      return { success: true, message: 'Credentials configured correctly' };
+      return { success: true, message: 'WhatsApp configurado correctamente' };
     } catch (error: unknown) {
-      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' };
     }
   }
 
@@ -418,6 +454,19 @@ export class PanelController {
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
     };
+  }
+
+  // ── Queue Flush (use after DB wipe to clear stale jobs) ──
+
+  @Post('queue-flush')
+  @HttpCode(HttpStatus.OK)
+  async flushQueue(): Promise<Record<string, unknown>> {
+    try {
+      await this.webhookQueue.obliterate({ force: true });
+      return { success: true, message: 'Queue cleared' };
+    } catch (error: unknown) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error' };
+    }
   }
 
   // ── Check OpenAI Status ──

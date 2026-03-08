@@ -94,6 +94,6 @@ export class DocumentService {
 
     await this.vectorSearch.deleteVectorsByDocument(id);
     await this.db.db.delete(documents).where(eq(documents.id, id));
-    this.logger.log(`Document deleted: ${doc['original_name']}`);
+    this.logger.log(`Document deleted: ${doc['originalName']}`);
   }
 }

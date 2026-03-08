@@ -71,18 +71,18 @@
 
     conversations.forEach(conv => {
       const s       = statusMap[conv.status] || statusMap.closed;
-      const initial = (conv.contact_name || conv.phone_number || '?').charAt(0).toUpperCase();
-      const name    = conv.contact_name || conv.phone_number || 'Sin nombre';
-      const preview = (conv.last_message || 'Sin mensajes').substring(0, 50);
-      const timeAgo = window.formatTimeAgo ? window.formatTimeAgo(new Date(conv.last_message_at)) : '';
+      const initial = (conv.contactName || conv.phoneNumber || '?').charAt(0).toUpperCase();
+      const name    = conv.contactName || conv.phoneNumber || 'Sin nombre';
+      const preview = (conv.lastMessage || 'Sin mensajes').substring(0, 50);
+      const timeAgo = window.formatTimeAgo ? window.formatTimeAgo(new Date(conv.lastMessageAt)) : '';
       const isActive = currentConversationId === conv.id;
 
       const div = document.createElement('div');
       div.dataset.convId     = conv.id;
-      div.dataset.lastUpdate = conv.last_message_at;
+      div.dataset.lastUpdate = conv.lastMessageAt;
       div.dataset.status     = conv.status;
       div.className = 'conv-item' + (isActive ? ' selected' : '');
-      div.onclick   = () => viewConversation(conv.id, name, conv.phone_number);
+      div.onclick   = () => viewConversation(conv.id, name, conv.phoneNumber);
 
       div.innerHTML = `
         <div class="avatar avatar-md" style="flex-shrink:0;">${esc(initial)}</div>
@@ -91,7 +91,7 @@
             <span style="font-size:0.875rem;font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(name)}</span>
             <span style="font-size:0.6875rem;color:var(--text-muted);flex-shrink:0;">${esc(timeAgo)}</span>
           </div>
-          <div style="font-size:0.8125rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:0.2rem;">${esc(conv.phone_number)}</div>
+          <div style="font-size:0.8125rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:0.2rem;">${esc(conv.phoneNumber)}</div>
           <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;">
             <span style="font-size:0.8125rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;">${esc(preview)}${preview.length >= 50 ? '…' : ''}</span>
             <span class="badge ${s.cls}" style="flex-shrink:0;">${s.label}</span>
@@ -110,11 +110,11 @@
     loadConvsAbort = new AbortController();
     const signal = loadConvsAbort.signal;
     try {
-      const url = status ? `${bp}/api/get-conversations.php?status=${status}` : `${bp}/api/get-conversations.php`;
+      const url = status ? `${bp}/api/conversations?status=${status}` : `${bp}/api/conversations`;
       const res  = await fetch(url, { signal, cache: 'no-store' });
       const data = await res.json();
       if (!data.success) throw new Error(data.error || 'Error');
-      allConversations = data.conversations || [];
+      allConversations = (data.data && data.data.conversations) || [];
       renderConversationsList(allConversations);
       updateFilterButtons();
     } catch (err) {
@@ -129,11 +129,11 @@
     refreshConvsAbort = new AbortController();
     const signal = refreshConvsAbort.signal;
     try {
-      const url = status ? `${bp}/api/get-conversations.php?status=${status}` : `${bp}/api/get-conversations.php`;
+      const url = status ? `${bp}/api/conversations?status=${status}` : `${bp}/api/conversations`;
       const res  = await fetch(url, { signal, cache: 'no-store' });
       const data = await res.json();
       if (!data.success) return;
-      allConversations = data.conversations || [];
+      allConversations = (data.data && data.data.conversations) || [];
       renderConversationsList(allConversations);
     } catch (err) {
       if (err.name === 'AbortError') return;
@@ -150,7 +150,7 @@
     searchInput.addEventListener('input', e => {
       const q = e.target.value.toLowerCase();
       const filtered = allConversations.filter(c =>
-        (c.contact_name || '').toLowerCase().includes(q) || (c.phone_number || '').includes(q)
+        (c.contactName || '').toLowerCase().includes(q) || (c.phoneNumber || '').includes(q)
       );
       renderConversationsList(filtered);
     });
@@ -162,15 +162,15 @@
     }
 
     return `<div class="messages-wrapper">` + messages.map(msg => {
-      const isUser = msg.sender_type === 'user';
-      const time   = new Date(msg.created_at).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
+      const isUser = msg.senderType === 'user';
+      const time   = new Date(msg.createdAt).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
       const bubbleBg = isUser
         ? 'background:var(--bg-surface);border:1px solid var(--border-color);'
         : 'background:var(--color-primary);';
       const textColor = isUser ? 'color:var(--text-primary);' : 'color:#fff;';
 
       let inner = '';
-      if (msg.media_type === 'audio' && msg.audio_url) {
+      if (msg.mediaType === 'audio' && msg.audioUrl) {
         inner = `
           <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem;">
             <svg width="16" height="16" viewBox="0 0 20 20" fill="${isUser ? 'var(--color-primary)' : '#fff'}">
@@ -179,21 +179,21 @@
             <span style="font-size:0.75rem;font-weight:600;${textColor}">Mensaje de voz</span>
           </div>
           <audio controls style="width:100%;max-width:260px;height:36px;border-radius:18px;">
-            <source src="${bp}${esc(msg.audio_url)}" type="audio/ogg">
+            <source src="${bp}${esc(msg.audioUrl)}" type="audio/ogg">
           </audio>
           <details style="margin-top:0.5rem;">
             <summary style="cursor:pointer;font-size:0.75rem;${isUser ? 'color:var(--text-muted)' : 'color:rgba(255,255,255,0.7)'}">Ver transcripción</summary>
-            <p style="margin-top:0.375rem;font-size:0.8125rem;${textColor};font-style:italic;">${formatWhatsApp(msg.message_text.replace('[Audio] ', ''))}</p>
+            <p style="margin-top:0.375rem;font-size:0.8125rem;${textColor};font-style:italic;">${formatWhatsApp(msg.messageText.replace('[Audio] ', ''))}</p>
           </details>`;
       } else {
-        inner = `<p style="font-size:0.875rem;line-height:1.55;word-break:break-word;${textColor}">${formatWhatsApp(msg.message_text)}</p>`;
+        inner = `<p style="font-size:0.875rem;line-height:1.55;word-break:break-word;${textColor}">${formatWhatsApp(msg.messageText)}</p>`;
       }
 
       const checkmark = !isUser
         ? `<svg width="14" height="14" viewBox="0 0 20 20" fill="#3b82f6"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>`
         : '';
-      const confScore = msg.confidence_score
-        ? `<span style="font-size:0.6875rem;color:var(--text-muted);">(${Math.round(msg.confidence_score * 100)}%)</span>`
+      const confScore = msg.confidenceScore
+        ? `<span style="font-size:0.6875rem;color:var(--text-muted);">(${Math.round(msg.confidenceScore * 100)}%)</span>`
         : '';
 
       return `
@@ -211,20 +211,21 @@
 
   async function loadMessages(conversationId, append = false) {
     try {
-      const res  = await fetch(`${bp}/api/get-conversation-messages.php?id=${conversationId}&offset=${messagesOffset}&limit=20`);
+      const res  = await fetch(`${bp}/api/conversations/${conversationId}/messages`);
       const data = await res.json();
       if (!data.success) throw new Error(data.error || 'Error');
 
-      if (!append && data.server_time) lastCheckTime = data.server_time;
+      if (!append) lastCheckTime = new Date().toISOString();
 
-      hasMoreMessages = data.has_more;
+      const msgList = data.data || [];
+      hasMoreMessages = false;
       const loadMoreBtn = $('load-more-btn');
-      if (loadMoreBtn) loadMoreBtn.classList.toggle('hidden', !hasMoreMessages);
+      if (loadMoreBtn) loadMoreBtn.classList.toggle('hidden', true);
 
       const messagesContent = $('messages-content');
       if (!messagesContent) return;
 
-      const html = renderMessages(data.messages || []);
+      const html = renderMessages(msgList);
 
       if (append) {
         const existing = messagesContent.querySelector('.messages-wrapper');
@@ -239,8 +240,8 @@
           }
         }
       } else {
-        const lastMsg   = (data.messages || []).slice(-1)[0];
-        const newHash   = lastMsg ? `${lastMsg.id}-${lastMsg.message_text.length}` : 'empty';
+        const lastMsg   = msgList.slice(-1)[0];
+        const newHash   = lastMsg ? `${lastMsg.id}-${lastMsg.messageText.length}` : 'empty';
         const existing  = messagesContent.querySelector('.messages-wrapper');
         const existHash = existing ? existing.dataset.hash : null;
 
@@ -278,11 +279,10 @@
     autoRefreshHandle = visibilityInterval(async () => {
       if (!currentConversationId || !lastCheckTime) return;
       try {
-        const url = `${bp}/api/check-updates.php?last_check=${encodeURIComponent(lastCheckTime)}&conversation_id=${currentConversationId}`;
+        const url = `${bp}/api/conversations/${currentConversationId}/messages`;
         const res  = await fetch(url, { cache: 'no-store' });
         const data = await res.json();
-        if (data.server_time) lastCheckTime = data.server_time;
-        if (!data.success || !data.has_update) return;
+        if (!data.success) return;
         const chatMessages = $('chat-messages');
         const atBottom     = chatMessages ? (chatMessages.scrollHeight - chatMessages.scrollTop - chatMessages.clientHeight) < 100 : false;
         const prevOffset   = messagesOffset;
@@ -303,14 +303,8 @@
     convsRefreshHandle = visibilityInterval(async () => {
       try {
         if (!lastConvsCheck) {
-          const init = await fetch(`${bp}/api/check-updates.php`, { cache: 'no-store' });
-          const initData = await init.json();
-          lastConvsCheck = initData.server_time || new Date().toISOString();
+          lastConvsCheck = new Date().toISOString();
         }
-        const res  = await fetch(`${bp}/api/check-conversation-updates.php?last_check=${encodeURIComponent(lastConvsCheck)}`, { cache: 'no-store' });
-        const data = await res.json();
-        if (data.server_time) lastConvsCheck = data.server_time;
-        if (!data.success || !data.has_updates) return;
         await refreshConversations(currentFilter === 'all' ? null : currentFilter);
       } catch (_) {}
     }, 3000);
@@ -331,10 +325,13 @@
     const listPanel = $('list-panel');
     if (chatPanel) chatPanel.classList.remove('hidden');
 
-    /* Mobile: switch to chat view */
     if (window.innerWidth < 768) {
-      if (listPanel) listPanel.style.display = 'none';
-      if (chatPanel) chatPanel.style.display = 'flex';
+      /* Mobile: slide panels */
+      if (listPanel) listPanel.classList.add('mobile-hidden');
+      if (chatPanel) chatPanel.classList.add('mobile-open');
+    } else {
+      /* Desktop: collapse list, expand chat to full width */
+      if (listPanel) listPanel.classList.add('desktop-hidden');
     }
 
     /* Header */
@@ -347,9 +344,11 @@
     if (nameEl) nameEl.textContent = name;
     const phoneEl = $('chat-contact-phone');
     if (phoneEl) phoneEl.textContent = phone;
+    const avatarEl = $('chat-avatar');
+    if (avatarEl) avatarEl.textContent = (name || '?').charAt(0).toUpperCase();
 
     const aiToggle = $('ai-toggle');
-    if (aiToggle && conv) aiToggle.checked = parseInt(conv.ai_enabled) !== 0;
+    if (aiToggle && conv) aiToggle.checked = !!conv.aiEnabled;
 
     await loadMessages(id);
     renderConversationsList(allConversations);
@@ -362,8 +361,11 @@
     const chatPanel = $('chat-panel');
 
     if (window.innerWidth < 768) {
-      if (listPanel) listPanel.style.display = '';
-      if (chatPanel) chatPanel.style.display = 'none';
+      if (listPanel) listPanel.classList.remove('mobile-hidden');
+      if (chatPanel) chatPanel.classList.remove('mobile-open');
+    } else {
+      /* Desktop: restore list panel */
+      if (listPanel) listPanel.classList.remove('desktop-hidden');
     }
 
     const headerEl = $('chat-header');
@@ -399,7 +401,7 @@
     if (sendButton) { sendButton.disabled = true; sendButton.classList.add('btn-loading'); }
 
     try {
-      const res  = await fetch(`${bp}/api/reply-conversation.php?id=${currentConversationId}`, {
+      const res  = await fetch(`${bp}/api/conversations/${currentConversationId}/reply`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ message }),
@@ -427,9 +429,9 @@
 
     if (newState) {
       try {
-        const res  = await fetch(`${bp}/api/check-openai-status.php`, { cache: 'no-store' });
+        const res  = await fetch(`${bp}/api/check-openai-status`, { cache: 'no-store' });
         const data = await res.json();
-        if (data.success && !data.can_enable_ai) {
+        if (data.success && data.data && !data.data.configured) {
           if (window.showToast) showToast('Fondos insuficientes en OpenAI. Por favor recarga tu cuenta.', 'warning');
           if (aiToggle) aiToggle.checked = false;
           return;
@@ -438,15 +440,15 @@
     }
 
     try {
-      const res  = await fetch(`${bp}/api/toggle-ai.php?id=${currentConversationId}`, {
+      const res  = await fetch(`${bp}/api/conversations/${currentConversationId}/toggle-ai`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ ai_enabled: newState }),
+        body:    JSON.stringify({ enabled: newState }),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error || 'Error');
       const conv = allConversations.find(c => c.id === currentConversationId);
-      if (conv) conv.ai_enabled = newState;
+      if (conv) conv.aiEnabled = newState;
       if (window.showToast) showToast(`IA Bot ${newState ? 'activado' : 'desactivado'}`, 'success');
     } catch (err) {
       if (aiToggle) aiToggle.checked = !newState;

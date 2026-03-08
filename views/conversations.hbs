@@ -1,102 +1,93 @@
-<h2 class="mb-4"><i class="bi bi-chat-dots me-2"></i>Conversaciones</h2>
+<style>
+.conv-panel { display:flex; flex-direction:column; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:var(--radius-xl); overflow:hidden; }
+.conv-filter-btn { flex:1; min-width:0; padding:0.4375rem 0.75rem; font-size:0.8125rem; font-weight:500; border-radius:var(--radius-md); border:1px solid var(--border-color); background:transparent; color:var(--text-secondary); cursor:pointer; transition:all 0.15s ease; min-height:36px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.conv-filter-btn.active { background:var(--color-primary); color:#fff; border-color:var(--color-primary); }
+.conv-filter-btn:hover:not(.active) { background:var(--bg-elevated); }
+.conv-item { display:flex; align-items:center; gap:0.75rem; padding:0.875rem 1rem; border-bottom:1px solid var(--border-subtle); cursor:pointer; transition:background 0.15s ease; overflow:hidden; min-width:0; }
+.conv-item:hover { background:var(--bg-elevated); }
+.conv-item.selected { background:var(--bg-elevated); border-left:3px solid var(--color-primary); }
 
-<div class="row">
-  <div class="col-md-5">
-    <div class="card border-0 shadow-sm" style="height: 75vh;">
-      <div class="card-header bg-white d-flex justify-content-between align-items-center">
-        <span class="fw-bold">Lista</span>
-        <select id="status-filter" class="form-select form-select-sm" style="width: auto;">
-          <option value="">Todas</option>
-          <option value="active">Activas</option>
-          <option value="closed">Cerradas</option>
-        </select>
+/* Desktop: list panel collapses when chat is open */
+.conv-height-container { position:relative; overflow:hidden; }
+#list-panel  { transition: width 0.25s ease, opacity 0.2s ease, flex 0.25s ease; }
+#chat-panel  { transition: flex 0.25s ease; }
+#list-panel.desktop-hidden  { width:0 !important; opacity:0; pointer-events:none; overflow:hidden; padding:0; border:none; }
+
+@media (max-width:767px) {
+  .conv-height-container { gap:0 !important; }
+  #list-panel, #chat-panel { position:absolute !important; inset:0 !important; width:100% !important; transition:transform 0.25s ease !important; }
+  #list-panel { z-index:1 !important; transform:translateX(0) !important; display:flex !important; }
+  #chat-panel { z-index:2 !important; transform:translateX(100%) !important; display:flex !important; }
+  #chat-panel.mobile-open { transform:translateX(0) !important; }
+  #list-panel.mobile-hidden { transform:translateX(-100%) !important; }
+  #list-panel.desktop-hidden { width:unset !important; opacity:1 !important; pointer-events:unset !important; border:unset !important; }
+  .conv-filter-btn { padding-left:0.5rem !important; padding-right:0.5rem !important; font-size:0.75rem !important; }
+}
+</style>
+
+<div class="conv-height-container" style="display:flex;gap:1rem;height:calc(100dvh - var(--topbar-height) - 3rem);min-height:400px;">
+  <!-- List panel -->
+  <div id="list-panel" class="conv-panel" style="width:320px;flex-shrink:0;">
+    <div style="padding:0.75rem;border-bottom:1px solid var(--border-color);flex-shrink:0;">
+      <div style="display:flex;gap:0.375rem;margin-bottom:0.625rem;">
+        <button class="conv-filter-btn active" id="filter-all" onclick="filterConversations('all')">Todas</button>
+        <button class="conv-filter-btn" id="filter-active" onclick="filterConversations('active')">Activas</button>
+        <button class="conv-filter-btn" id="filter-pending" onclick="filterConversations('pending_human')">Pendientes</button>
       </div>
-      <div class="card-body p-0 overflow-auto" id="conv-list">
-        <div class="text-center text-muted py-4">Cargando...</div>
+      <div style="position:relative;">
+        <input type="text" id="search-conversations" class="form-input" style="padding-left:2.25rem;" placeholder="Buscar por nombre o número…">
+        <svg style="position:absolute;left:0.625rem;top:50%;transform:translateY(-50%);width:1rem;height:1rem;color:var(--text-muted);pointer-events:none;" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
+        </svg>
+      </div>
+    </div>
+    <div id="conversations-list" style="flex:1;overflow-y:auto;">
+      <div style="display:flex;align-items:center;justify-content:center;padding:3rem;">
+        <div class="spinner"></div>
       </div>
     </div>
   </div>
-  <div class="col-md-7">
-    <div class="card border-0 shadow-sm" style="height: 75vh;">
-      <div class="card-header bg-white d-flex justify-content-between align-items-center">
-        <span class="fw-bold" id="chat-title">Selecciona una conversación</span>
-        <button class="btn btn-sm btn-outline-secondary d-none" id="toggle-ai-btn">Toggle AI</button>
+
+  <!-- Chat panel -->
+  <div id="chat-panel" class="conv-panel" style="flex:1;min-width:0;">
+    <div id="chat-header" class="hidden" style="padding:0.875rem 1rem;border-bottom:1px solid var(--border-color);display:flex;align-items:center;gap:0.75rem;flex-shrink:0;">
+      <button onclick="closeChat()" id="back-btn" style="padding:0.375rem;border-radius:var(--radius-md);border:1px solid var(--border-color);background:transparent;cursor:pointer;color:var(--text-secondary);flex-shrink:0;" aria-label="Volver">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd"/></svg>
+      </button>
+      <div class="avatar avatar-md" id="chat-avatar" style="flex-shrink:0;">?</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:0.9375rem;font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="chat-contact-name"></div>
+        <div style="font-size:0.8125rem;color:var(--text-muted);" id="chat-contact-phone"></div>
       </div>
-      <div class="card-body overflow-auto d-flex flex-column-reverse" id="chat-messages" style="background: #e5ddd5;">
-        <div class="text-center text-muted py-5">Selecciona una conversación para ver los mensajes</div>
+      <div style="display:flex;align-items:center;gap:0.5rem;flex-shrink:0;">
+        <span style="font-size:0.75rem;font-weight:500;color:var(--text-secondary);">IA Bot</span>
+        <label class="toggle" title="Activar/desactivar IA">
+          <input type="checkbox" id="ai-toggle" onchange="toggleAI()">
+          <span class="toggle-thumb"></span>
+        </label>
+      </div>
+    </div>
+
+    <div id="chat-messages" class="chat-container" style="flex:1;overflow-y:auto;padding:1rem;">
+      <button id="load-more-btn" class="hidden btn btn-secondary btn-sm" style="width:100%;margin-bottom:1rem;" onclick="loadMoreMessages()">Cargar mensajes anteriores</button>
+      <div id="messages-content">
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;min-height:300px;color:var(--text-muted);text-align:center;gap:0.75rem;padding:2rem;">
+          <svg width="56" height="56" viewBox="0 0 20 20" fill="currentColor" style="opacity:0.2;"><path fill-rule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7z" clip-rule="evenodd"/></svg>
+          <p style="font-size:1rem;font-weight:500;color:var(--text-secondary);">Selecciona una conversación</p>
+          <p style="font-size:0.875rem;">Elige una conversación de la lista para ver los mensajes</p>
+        </div>
+      </div>
+    </div>
+
+    <div id="chat-input" class="hidden" style="padding:0.875rem 1rem;border-top:1px solid var(--border-color);flex-shrink:0;">
+      <div style="display:flex;align-items:flex-end;gap:0.625rem;">
+        <textarea id="reply-input" class="form-textarea" placeholder="Escribe tu respuesta… (Enter para enviar, Shift+Enter para nueva línea)" rows="1" style="flex:1;resize:none;max-height:120px;border-radius:var(--radius-lg);"></textarea>
+        <button id="send-btn" onclick="sendReply()" class="btn btn-primary btn-md" style="flex-shrink:0;">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"/></svg>
+          Enviar
+        </button>
       </div>
     </div>
   </div>
 </div>
 
-<script>
-let currentConvId = null;
-
-document.addEventListener('DOMContentLoaded', () => {
-  loadConversations();
-  document.getElementById('status-filter').addEventListener('change', loadConversations);
-});
-
-async function loadConversations(page = 1) {
-  const status = document.getElementById('status-filter').value;
-  const url = `/api/conversations?page=${page}${status ? '&status=' + status : ''}`;
-  try {
-    const res = await fetch(url);
-    const data = await res.json();
-    const list = document.getElementById('conv-list');
-    if (data.success && data.data.conversations && data.data.conversations.length > 0) {
-      list.innerHTML = data.data.conversations.map(c => `
-        <div class="p-3 border-bottom conv-item ${c.id === currentConvId ? 'bg-light' : ''}" style="cursor:pointer;" onclick="selectConv(${c.id}, '${(c.contactName || 'Sin nombre').replace(/'/g, "\\'")}', ${c.aiEnabled})">
-          <div class="d-flex justify-content-between">
-            <strong>${c.contactName || 'Sin nombre'}</strong>
-            <small class="text-muted">${c.lastMessageAt ? new Date(c.lastMessageAt).toLocaleDateString('es-CO') : ''}</small>
-          </div>
-          <small class="text-muted">${c.userPhone}</small>
-          <span class="badge ${c.aiEnabled ? 'bg-success' : 'bg-secondary'} ms-2">${c.aiEnabled ? 'AI' : 'Manual'}</span>
-        </div>
-      `).join('');
-    } else {
-      list.innerHTML = '<div class="text-center text-muted py-4">No hay conversaciones</div>';
-    }
-  } catch (e) { console.error(e); }
-}
-
-async function selectConv(id, name, aiEnabled) {
-  currentConvId = id;
-  document.getElementById('chat-title').textContent = name;
-  const btn = document.getElementById('toggle-ai-btn');
-  btn.classList.remove('d-none');
-  btn.textContent = aiEnabled ? 'Desactivar AI' : 'Activar AI';
-  btn.onclick = () => toggleAI(id, !aiEnabled);
-  loadConversations();
-  try {
-    const res = await fetch(`/api/conversations/${id}/messages`);
-    const data = await res.json();
-    const container = document.getElementById('chat-messages');
-    if (data.success && data.data.length > 0) {
-      container.innerHTML = data.data.map(m => `
-        <div class="mb-2 d-flex ${m.senderType === 'user' ? 'justify-content-start' : 'justify-content-end'}">
-          <div class="p-2 rounded-3 shadow-sm" style="max-width:75%; background: ${m.senderType === 'user' ? '#fff' : '#dcf8c6'};">
-            <div style="white-space: pre-wrap;">${m.messageText}</div>
-            <div class="text-end"><small class="text-muted">${new Date(m.createdAt).toLocaleTimeString('es-CO', {hour:'2-digit',minute:'2-digit'})}</small></div>
-          </div>
-        </div>
-      `).join('');
-    } else {
-      container.innerHTML = '<div class="text-center text-muted py-5">Sin mensajes</div>';
-    }
-  } catch (e) { console.error(e); }
-}
-
-async function toggleAI(id, enabled) {
-  await fetch(`/api/conversations/${id}/toggle-ai`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ enabled })
-  });
-  const btn = document.getElementById('toggle-ai-btn');
-  btn.textContent = enabled ? 'Desactivar AI' : 'Activar AI';
-  btn.onclick = () => toggleAI(id, !enabled);
-  loadConversations();
-}
-</script>

@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import configuration from './config/configuration';
 import { DatabaseModule } from './modules/database/database.module';
@@ -15,6 +16,7 @@ import { CalendarModule } from './modules/calendar/calendar.module';
 import { ClassicBotModule } from './modules/classic-bot/classic-bot.module';
 import { WebhookModule } from './modules/webhook/webhook.module';
 import { PanelModule } from './modules/panel/panel.module';
+import { OnboardingGuard } from './common/guards/onboarding.guard';
 
 @Module({
   imports: [
@@ -36,6 +38,9 @@ import { PanelModule } from './modules/panel/panel.module';
     ClassicBotModule,
     WebhookModule,
     PanelModule,
+  ],
+  providers: [
+    { provide: APP_GUARD, useClass: OnboardingGuard },
   ],
 })
 export class AppModule {}

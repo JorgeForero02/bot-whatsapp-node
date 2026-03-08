@@ -38,19 +38,22 @@ export class VectorSearchService {
         similarity = 1 / (1 + dist);
       }
 
-      if (similarity >= threshold) {
-        scored.push({
-          id: row.id,
-          documentId: row.documentId,
-          chunkText: row.chunkText,
-          chunkIndex: row.chunkIndex,
-          similarity,
-        });
-      }
+      scored.push({
+        id: row.id,
+        documentId: row.documentId,
+        chunkText: row.chunkText,
+        chunkIndex: row.chunkIndex,
+        similarity,
+      });
     }
 
     scored.sort((a, b) => b.similarity - a.similarity);
-    return scored.slice(0, topK);
+
+    const aboveThreshold = scored.filter((r) => r.similarity >= threshold).slice(0, topK);
+    if (aboveThreshold.length > 0) return aboveThreshold;
+
+    // If nothing meets the threshold, still return the best matches to provide some context
+    return scored.slice(0, Math.min(topK, scored.length));
   }
 
   async storeVector(documentId: number, chunkText: string, chunkIndex: number, embedding: number[]): Promise<number> {

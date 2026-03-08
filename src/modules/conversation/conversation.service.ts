@@ -122,10 +122,30 @@ export class ConversationService {
     page = 1,
     perPage = 20,
     status: string | null = null,
-  ): Promise<{ conversations: ConversationRow[]; total: number }> {
+  ): Promise<{ conversations: Array<ConversationRow & { lastMessage: string | null }>; total: number }> {
     const offset = (page - 1) * perPage;
 
-    let query = this.db.db.select().from(conversations);
+    const lastMsgSubquery = sql<string>`(
+      SELECT m.message_text FROM messages m
+      WHERE m.conversation_id = conversations.id
+      ORDER BY m.created_at DESC LIMIT 1
+    )`.as('lastMessage');
+
+    let query = this.db.db
+      .select({
+        id: conversations.id,
+        phoneNumber: conversations.phoneNumber,
+        contactName: conversations.contactName,
+        status: conversations.status,
+        aiEnabled: conversations.aiEnabled,
+        lastMessageAt: conversations.lastMessageAt,
+        lastBotMessageAt: conversations.lastBotMessageAt,
+        createdAt: conversations.createdAt,
+        updatedAt: conversations.updatedAt,
+        lastMessage: lastMsgSubquery,
+      })
+      .from(conversations);
+
     if (status) {
       query = query.where(eq(conversations.status, status as 'active' | 'closed' | 'pending_human')) as typeof query;
     }
@@ -140,7 +160,7 @@ export class ConversationService {
       .from(conversations);
 
     return {
-      conversations: rows as ConversationRow[],
+      conversations: rows as Array<ConversationRow & { lastMessage: string | null }>,
       total: countResult[0]?.count ?? 0,
     };
   }
@@ -162,24 +182,30 @@ export class ConversationService {
   async getStats(): Promise<{
     totalConversations: number;
     activeConversations: number;
+    pendingHumanConversations: number;
+    todayConversations: number;
     totalMessages: number;
     todayMessages: number;
   }> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const [totalConvResult, activeConvResult, totalMsgResult, todayMsgResult] = await Promise.all([
+    const [totalConvResult, activeConvResult, pendingResult, todayConvResult, totalMsgResult, todayMsgResult] = await Promise.all([
       this.db.db.select({ count: sql<number>`COUNT(*)` }).from(conversations),
       this.db.db.select({ count: sql<number>`COUNT(*)` }).from(conversations).where(eq(conversations.status, 'active')),
+      this.db.db.select({ count: sql<number>`COUNT(*)` }).from(conversations).where(eq(conversations.status, 'pending_human')),
+      this.db.db.select({ count: sql<number>`COUNT(*)` }).from(conversations).where(gte(conversations.createdAt, today)),
       this.db.db.select({ count: sql<number>`COUNT(*)` }).from(messages),
       this.db.db.select({ count: sql<number>`COUNT(*)` }).from(messages).where(gte(messages.createdAt, today)),
     ]);
 
     return {
-      totalConversations: totalConvResult[0]?.count ?? 0,
-      activeConversations: activeConvResult[0]?.count ?? 0,
-      totalMessages: totalMsgResult[0]?.count ?? 0,
-      todayMessages: todayMsgResult[0]?.count ?? 0,
+      totalConversations: Number(totalConvResult[0]?.count ?? 0),
+      activeConversations: Number(activeConvResult[0]?.count ?? 0),
+      pendingHumanConversations: Number(pendingResult[0]?.count ?? 0),
+      todayConversations: Number(todayConvResult[0]?.count ?? 0),
+      totalMessages: Number(totalMsgResult[0]?.count ?? 0),
+      todayMessages: Number(todayMsgResult[0]?.count ?? 0),
     };
   }
 }

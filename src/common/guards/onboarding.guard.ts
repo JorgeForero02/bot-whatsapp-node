@@ -11,15 +11,21 @@ export class OnboardingGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<{ url: string }>();
     const url = request.url;
 
-    if (url.startsWith('/api/') || url.startsWith('/webhook') || url === '/onboarding') {
+    if (
+      url.startsWith('/api/') ||
+      url.startsWith('/webhook') ||
+      url.startsWith('/assets/') ||
+      url === '/onboarding' ||
+      url.startsWith('/onboarding?')
+    ) {
       return true;
     }
 
     try {
       const complete = await this.onboarding.isOnboardingComplete();
       if (!complete) {
-        const response = context.switchToHttp().getResponse<{ redirect: (url: string) => void }>();
-        response.redirect('/onboarding');
+        const response = context.switchToHttp().getResponse<{ redirect: (statusCode: number, url: string) => void }>();
+        response.redirect(302, '/onboarding');
         return false;
       }
     } catch (error: unknown) {

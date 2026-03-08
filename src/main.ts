@@ -23,6 +23,16 @@ async function bootstrap(): Promise<void> {
   );
 
   await instance.register(
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require('@fastify/static') as Parameters<typeof instance.register>[0],
+    {
+      root: join(__dirname, '..', 'public'),
+      prefix: '/',
+      decorateReply: false,
+    },
+  );
+
+  await instance.register(
     require('@fastify/view') as Parameters<typeof instance.register>[0],
     {
       engine: { handlebars: require('handlebars') as Record<string, unknown> },

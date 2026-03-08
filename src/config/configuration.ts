@@ -16,7 +16,7 @@ export default () => {
       phoneNumberId: parsed.WHATSAPP_PHONE_NUMBER_ID,
       verifyToken: parsed.WHATSAPP_VERIFY_TOKEN,
       appSecret: parsed.APP_SECRET,
-      apiVersion: 'v18.0',
+      apiVersion: 'v21.0',
       baseUrl: 'https://graph.facebook.com',
     },
     openai: {

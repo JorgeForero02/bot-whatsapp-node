@@ -3,92 +3,162 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{{title}} — WhatsApp Bot Panel</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <title>{{title}} — WhatsApp Bot</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💬</text></svg>">
+
+  <script>
+    (function() {
+      var theme = localStorage.getItem('theme');
+      var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (theme === 'dark' || (!theme && prefersDark)) {
+        document.documentElement.classList.add('dark');
+      }
+    })();
+  </script>
+
+  <script>const BASE_PATH = '';</script>
+
+  <link rel="stylesheet" href="/assets/css/tailwind.css">
+  <link rel="stylesheet" href="/assets/css/app.css">
+
+  {{{extraHead}}}
+
   <style>
-    body { background: #f4f6f9; }
-    .sidebar { min-height: 100vh; background: #212529; }
-    .sidebar .nav-link { color: #adb5bd; padding: 0.75rem 1.25rem; }
-    .sidebar .nav-link:hover, .sidebar .nav-link.active { color: #fff; background: rgba(255,255,255,0.08); }
-    .sidebar .nav-link i { width: 24px; }
-    .content-area { padding: 1.5rem; }
-    .onboarding-pill { font-size: 0.8rem; }
-    .progress-mini { height: 6px; }
+    .chat-container {
+      background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxkZWZzPjxwYXR0ZXJuIGlkPSJhIiBwYXR0ZXJuVW5pdHM9InVzZXJTcGFjZU9uVXNlIiB3aWR0aD0iNDAiIGhlaWdodD0iNDAiPjxwYXRoIGQ9Ik0wIDBoNDB2NDBIMHoiIGZpbGw9IiNmOWZhZmIiLz48cGF0aCBkPSJNMCAyMGg0MHYxSDB6TTIwIDBoMXY0MGgtMXoiIGZpbGw9IiNlNWU3ZWIiLz48L3BhdHRlcm4+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjYSkiLz48L3N2Zz4=');
+    }
+    .dark .chat-container {
+      background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxkZWZzPjxwYXR0ZXJuIGlkPSJhIiBwYXR0ZXJuVW5pdHM9InVzZXJTcGFjZU9uVXNlIiB3aWR0aD0iNDAiIGhlaWdodD0iNDAiPjxwYXRoIGQ9Ik0wIDBoNDB2NDBIMHoiIGZpbGw9IiMxMTExMjciLz48cGF0aCBkPSJNMCAyMGg0MHYxSDB6TTIwIDBoMXY0MGgtMXoiIGZpbGw9IiMxZjFmMmUiLz48L3BhdHRlcm4+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjYSkiLz48L3N2Zz4=');
+    }
+    .message-bubble { animation: fadeInUp 0.25s ease; }
   </style>
 </head>
 <body>
-  <div class="d-flex">
-    <!-- Sidebar -->
-    <nav class="sidebar d-flex flex-column p-3" style="width: 250px;">
-      <a class="text-white text-decoration-none mb-4 d-flex align-items-center" href="/">
-        <i class="bi bi-whatsapp fs-4 me-2"></i>
-        <span class="fw-bold">WhatsApp Bot</span>
+
+<div class="app-shell">
+
+  <div id="sidebar-overlay" class="sidebar-overlay"></div>
+
+  <aside id="app-sidebar" class="app-sidebar">
+    <div style="padding:1.25rem 1rem 1rem;border-bottom:1px solid var(--border-color);flex-shrink:0;">
+      <a href="/" style="display:flex;align-items:center;gap:0.625rem;text-decoration:none;">
+        <div style="width:2rem;height:2rem;background:var(--color-primary);border-radius:0.5rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <svg width="18" height="18" viewBox="0 0 20 20" fill="white">
+            <path fill-rule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clip-rule="evenodd"/>
+          </svg>
+        </div>
+        <div>
+          <div style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);line-height:1.2;">WhatsApp Bot</div>
+          <div style="font-size:0.6875rem;color:var(--text-muted);line-height:1;">Panel Admin</div>
+        </div>
       </a>
+    </div>
 
-      <ul class="nav flex-column">
-        <li class="nav-item">
-          <a class="nav-link {{#if isDashboard}}active{{/if}}" href="/">
-            <i class="bi bi-speedometer2 me-2"></i> Dashboard
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link {{#if isConversations}}active{{/if}}" href="/conversations">
-            <i class="bi bi-chat-dots me-2"></i> Conversaciones
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link {{#if isDocuments}}active{{/if}}" href="/documents">
-            <i class="bi bi-file-earmark-text me-2"></i> Documentos
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link {{#if isSettings}}active{{/if}}" href="/settings">
-            <i class="bi bi-gear me-2"></i> Configuración
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link {{#if isCalendarSettings}}active{{/if}}" href="/calendar-settings">
-            <i class="bi bi-calendar3 me-2"></i> Calendario
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link {{#if isCredentials}}active{{/if}}" href="/credentials">
-            <i class="bi bi-key me-2"></i> Credenciales
-          </a>
-        </li>
-        {{#if showFlowBuilder}}
-        <li class="nav-item">
-          <a class="nav-link {{#if isFlowBuilder}}active{{/if}}" href="/flow-builder">
-            <i class="bi bi-diagram-3 me-2"></i> Flujos
-          </a>
-        </li>
-        {{/if}}
-      </ul>
+    <div id="sidebar-bot-status" style="padding:0.625rem 1rem;border-bottom:1px solid var(--border-color);display:flex;align-items:center;gap:0.5rem;flex-shrink:0;">
+      <span class="status-dot pulsing active" id="sidebar-status-dot"></span>
+      <span style="font-size:0.75rem;color:var(--text-muted);" id="sidebar-status-label">Bot activo</span>
+      <span class="badge badge-neutral" id="sidebar-mode-badge" style="margin-left:auto;font-size:0.625rem;">IA</span>
+    </div>
 
-      {{#if onboarding}}
-      <div class="mt-auto">
-        <a href="/onboarding" class="text-decoration-none">
-          <div class="bg-dark rounded p-2">
-            <div class="d-flex justify-content-between text-white-50 onboarding-pill mb-1">
-              <span>Onboarding</span>
-              <span>{{onboarding.completed}}/{{onboarding.total}}</span>
-            </div>
-            <div class="progress progress-mini">
-              <div class="progress-bar bg-success" style="width: {{onboarding.percent}}%"></div>
-            </div>
-          </div>
-        </a>
-      </div>
-      {{/if}}
+    <nav style="flex:1;padding:0.75rem 0;overflow-y:auto;">
+      <a href="/" class="sidebar-nav-item{{#if isDashboard}} active{{/if}}">
+        <span class="nav-icon"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z"/><path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z"/></svg></span>
+        <span>Dashboard</span>
+      </a>
+      <a href="/conversations" class="sidebar-nav-item{{#if isConversations}} active{{/if}}">
+        <span class="nav-icon"><svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clip-rule="evenodd"/></svg></span>
+        <span>Conversaciones</span>
+      </a>
+      <a href="/documents" class="sidebar-nav-item{{#if isDocuments}} active{{/if}}">
+        <span class="nav-icon"><svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"/></svg></span>
+        <span>Documentos</span>
+      </a>
+      <a href="/flow-builder" id="nav-flow-builder" class="sidebar-nav-item{{#if isFlowBuilder}} active{{/if}}">
+        <span class="nav-icon"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM14 11a1 1 0 011 1v1h1a1 1 0 110 2h-1v1a1 1 0 11-2 0v-1h-1a1 1 0 110-2h1v-1a1 1 0 011-1z"/></svg></span>
+        <span>Constructor de Flujos</span>
+      </a>
+      <a href="/settings" class="sidebar-nav-item{{#if isSettings}} active{{/if}}">
+        <span class="nav-icon"><svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/></svg></span>
+        <span>Configuración</span>
+      </a>
+      <a href="/calendar-settings" class="sidebar-nav-item{{#if isCalendarSettings}} active{{/if}}">
+        <span class="nav-icon"><svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/></svg></span>
+        <span>Horarios Calendar</span>
+      </a>
+      <a href="/credentials" class="sidebar-nav-item{{#if isCredentials}} active{{/if}}">
+        <span class="nav-icon"><svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 8a6 6 0 01-7.743 5.743L10 14l-1 1-1 1H6v2H2v-4l4.257-4.257A6 6 0 1118 8zm-6-4a1 1 0 100 2 2 2 0 012 2 1 1 0 102 0 4 4 0 00-4-4z" clip-rule="evenodd"/></svg></span>
+        <span>Credenciales</span>
+      </a>
     </nav>
 
-    <!-- Main Content -->
-    <main class="content-area flex-grow-1">
+    <div id="sidebar-onboarding" style="display:none;padding:0.875rem 1rem;border-top:1px solid var(--border-color);flex-shrink:0;">
+      <a href="/onboarding" style="display:block;text-decoration:none;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.375rem;">
+          <span style="font-size:0.75rem;font-weight:600;color:var(--text-secondary);">Configuración inicial</span>
+          <span style="font-size:0.6875rem;color:var(--text-muted);" id="sidebar-onboarding-pct">0%</span>
+        </div>
+        <div class="onboarding-progress-bar">
+          <div class="onboarding-progress-fill" id="sidebar-onboarding-bar" style="width:0%"></div>
+        </div>
+        <div style="margin-top:0.375rem;font-size:0.6875rem;color:var(--text-muted);" id="sidebar-onboarding-steps">0/7 pasos</div>
+      </a>
+    </div>
+
+    <div style="padding:0.875rem 1rem;border-top:1px solid var(--border-color);flex-shrink:0;">
+      <button data-action="toggle-dark"
+              style="display:flex;align-items:center;gap:0.625rem;width:100%;padding:0.5rem 0.625rem;border-radius:var(--radius-md);border:1px solid var(--border-color);background:var(--bg-elevated);cursor:pointer;color:var(--text-secondary);font-size:0.8125rem;font-weight:500;transition:all 0.15s ease;"
+              title="Cambiar tema">
+        <svg data-theme-icon="dark" width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/>
+        </svg>
+        <svg data-theme-icon="light" width="16" height="16" viewBox="0 0 20 20" fill="currentColor" class="hidden">
+          <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd"/>
+        </svg>
+        <span id="theme-label">Modo oscuro</span>
+      </button>
+    </div>
+  </aside>
+
+  <div class="app-main">
+    <header class="app-topbar">
+      <button id="sidebar-toggle"
+              style="display:none;padding:0.5rem;border-radius:var(--radius-md);border:1px solid var(--border-color);background:transparent;cursor:pointer;color:var(--text-secondary);flex-shrink:0;"
+              aria-label="Abrir menú">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"/>
+        </svg>
+      </button>
+
+      <nav class="breadcrumb" style="flex:1;min-width:0;">
+        <a href="/" style="color:var(--text-muted);text-decoration:none;font-size:0.8125rem;">Panel</a>
+        <span class="breadcrumb-sep">/</span>
+        <span class="breadcrumb-current">{{title}}</span>
+      </nav>
+
+      <div style="flex:1;"></div>
+
+      <button data-action="toggle-dark" class="btn btn-ghost btn-icon" title="Cambiar tema" style="flex-shrink:0;">
+        <svg data-theme-icon="dark" width="18" height="18" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/>
+        </svg>
+        <svg data-theme-icon="light" width="18" height="18" viewBox="0 0 20 20" fill="currentColor" class="hidden">
+          <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd"/>
+        </svg>
+      </button>
+    </header>
+
+    <main class="app-content">
       {{{body}}}
     </main>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</div>
+
+<div id="toast-container"></div>
+
+<script src="/assets/js/app.js"></script>
+<script src="/assets/js/layout.js"></script>
+{{{extraScripts}}}
+{{{inlineScripts}}}
 </body>
 </html>

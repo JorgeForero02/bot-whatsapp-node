@@ -38,6 +38,30 @@ export class CredentialService {
     private readonly config: ConfigService,
   ) {}
 
+  private async ensureBotCredentialsRow(): Promise<void> {
+    const existing = await this.db.db
+      .select({ id: botCredentials.id })
+      .from(botCredentials)
+      .where(eq(botCredentials.id, 1))
+      .limit(1);
+
+    if (existing.length === 0) {
+      await this.db.db.insert(botCredentials).values({ id: 1 }).onDuplicateKeyUpdate({ set: { id: 1 } });
+    }
+  }
+
+  private async ensureGoogleRow(): Promise<void> {
+    const existing = await this.db.db
+      .select({ id: googleOauthCredentials.id })
+      .from(googleOauthCredentials)
+      .where(eq(googleOauthCredentials.id, 1))
+      .limit(1);
+
+    if (existing.length === 0) {
+      await this.db.db.insert(googleOauthCredentials).values({ id: 1 }).onDuplicateKeyUpdate({ set: { id: 1 } });
+    }
+  }
+
   async getWhatsAppCredentials(): Promise<WhatsAppCredentials> {
     if (this.whatsappCache) return this.whatsappCache;
 
@@ -131,11 +155,15 @@ export class CredentialService {
   }
 
   async saveWhatsAppCredentials(creds: Partial<WhatsAppCredentials>): Promise<void> {
-    const data: Record<string, string> = {};
-    if (creds.accessToken) data['whatsapp_access_token'] = this.encryption.encrypt(creds.accessToken);
-    if (creds.phoneNumberId) data['whatsapp_phone_number_id'] = this.encryption.encrypt(creds.phoneNumberId);
-    if (creds.verifyToken) data['whatsapp_verify_token'] = this.encryption.encrypt(creds.verifyToken);
-    if (creds.appSecret) data['whatsapp_app_secret'] = this.encryption.encrypt(creds.appSecret);
+    await this.ensureBotCredentialsRow();
+    const data: Partial<typeof botCredentials.$inferInsert> = {};
+
+    if (creds.accessToken) data.whatsappAccessToken = this.encryption.encrypt(creds.accessToken);
+    if (creds.phoneNumberId) data.whatsappPhoneNumberId = this.encryption.encrypt(creds.phoneNumberId);
+    if (creds.verifyToken) data.whatsappVerifyToken = this.encryption.encrypt(creds.verifyToken);
+    if (creds.appSecret) data.whatsappAppSecret = this.encryption.encrypt(creds.appSecret);
+
+    if (Object.keys(data).length === 0) return;
 
     await this.db.db
       .update(botCredentials)
@@ -146,6 +174,7 @@ export class CredentialService {
   }
 
   async saveOpenAICredentials(creds: Partial<OpenAICredentials>): Promise<void> {
+    await this.ensureBotCredentialsRow();
     if (creds.apiKey) {
       await this.db.db
         .update(botCredentials)
@@ -156,12 +185,16 @@ export class CredentialService {
   }
 
   async saveGoogleOAuthCredentials(creds: Partial<GoogleOAuthCreds>): Promise<void> {
-    const data: Record<string, string> = {};
-    if (creds.accessToken) data['access_token'] = this.encryption.encrypt(creds.accessToken);
-    if (creds.refreshToken) data['refresh_token'] = this.encryption.encrypt(creds.refreshToken);
-    if (creds.clientId) data['client_id'] = this.encryption.encrypt(creds.clientId);
-    if (creds.clientSecret) data['client_secret'] = this.encryption.encrypt(creds.clientSecret);
-    if (creds.calendarId) data['calendar_id'] = creds.calendarId;
+    await this.ensureGoogleRow();
+    const data: Partial<typeof googleOauthCredentials.$inferInsert> = {};
+
+    if (creds.accessToken) data.accessToken = this.encryption.encrypt(creds.accessToken);
+    if (creds.refreshToken) data.refreshToken = this.encryption.encrypt(creds.refreshToken);
+    if (creds.clientId) data.clientId = this.encryption.encrypt(creds.clientId);
+    if (creds.clientSecret) data.clientSecret = this.encryption.encrypt(creds.clientSecret);
+    if (creds.calendarId) data.calendarId = creds.calendarId;
+
+    if (Object.keys(data).length === 0) return;
 
     await this.db.db
       .update(googleOauthCredentials)

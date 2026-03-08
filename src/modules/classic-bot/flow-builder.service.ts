@@ -53,6 +53,14 @@ interface FlowExport {
   nodes: Array<SaveNodeInput & { id?: number }>;
 }
 
+function parseJsonArray(value: unknown): string[] {
+  if (Array.isArray(value)) return value as string[];
+  if (typeof value === 'string') {
+    try { return JSON.parse(value) as string[]; } catch { return []; }
+  }
+  return [];
+}
+
 @Injectable()
 export class FlowBuilderService {
   private readonly logger = new Logger(FlowBuilderService.name);
@@ -76,10 +84,10 @@ export class FlowBuilderService {
 
       result.push({
         ...node,
-        triggerKeywords: (node.triggerKeywords ?? []) as string[],
+        triggerKeywords: parseJsonArray(node.triggerKeywords),
         options: opts.map((o) => ({
           ...o,
-          optionKeywords: (o.optionKeywords ?? []) as string[],
+          optionKeywords: parseJsonArray(o.optionKeywords),
         })),
       });
     }
@@ -233,17 +241,31 @@ export class FlowBuilderService {
     const idMap = new Map<number, number>();
 
     for (const nodeData of data.nodes) {
+      // Soportar JSON legacy en snake_case (ej. example-flow.json)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const legacyNode = nodeData as Record<string, any>;
+      const triggerKeywords = nodeData.triggerKeywords ?? legacyNode['trigger_keywords'] ?? [];
+      const messageText = nodeData.messageText ?? legacyNode['message_text'];
+      const nextNodeId = nodeData.nextNodeId ?? legacyNode['next_node_id'] ?? null;
+      const isRoot = nodeData.isRoot ?? legacyNode['is_root'] ?? false;
+      const requiresCalendar = nodeData.requiresCalendar ?? legacyNode['requires_calendar'] ?? false;
+      const matchAnyInput = nodeData.matchAnyInput ?? legacyNode['match_any_input'] ?? false;
+      const isFarewell = nodeData.isFarewell ?? legacyNode['is_farewell'] ?? false;
+      const positionOrder = nodeData.positionOrder ?? legacyNode['position_order'] ?? 0;
+      const isActive = nodeData.isActive ?? legacyNode['is_active'] ?? true;
+
       const oldId = nodeData.id;
       const newId = await this.saveNode(null, {
         name: nodeData.name,
-        triggerKeywords: nodeData.triggerKeywords ?? [],
-        messageText: nodeData.messageText,
-        isRoot: nodeData.isRoot ?? false,
-        requiresCalendar: nodeData.requiresCalendar ?? false,
-        matchAnyInput: nodeData.matchAnyInput ?? false,
-        isFarewell: nodeData.isFarewell ?? false,
-        positionOrder: nodeData.positionOrder ?? 0,
-        isActive: nodeData.isActive ?? true,
+        triggerKeywords,
+        messageText,
+        nextNodeId,
+        isRoot,
+        requiresCalendar,
+        matchAnyInput,
+        isFarewell,
+        positionOrder,
+        isActive,
       });
 
       if (oldId !== undefined) {
@@ -266,13 +288,17 @@ export class FlowBuilderService {
 
       if (nodeData.options) {
         for (const opt of nodeData.options) {
-          const mappedNextId = opt.nextNodeId ? idMap.get(opt.nextNodeId) ?? opt.nextNodeId : null;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const legacyOpt = opt as Record<string, any>;
+          const optionKeywords = opt.optionKeywords ?? legacyOpt['option_keywords'] ?? [];
+          const nextId = opt.nextNodeId ?? legacyOpt['next_node_id'] ?? null;
+          const mappedNextId = nextId ? idMap.get(nextId) ?? nextId : null;
           await this.db.db.insert(flowOptions).values({
             nodeId: newId,
             optionText: opt.optionText,
-            optionKeywords: opt.optionKeywords ?? [],
+            optionKeywords,
             nextNodeId: mappedNextId,
-            positionOrder: opt.positionOrder ?? 0,
+            positionOrder: opt.positionOrder ?? legacyOpt['position_order'] ?? 0,
           });
         }
       }
