@@ -106,8 +106,19 @@ export class ClassicCalendarFlowHandler {
 
     switch (choice) {
       case '1': {
-        await this.updateSession(session.userPhone, 'schedule_date', {});
-        return '📅 ¿Para qué fecha deseas agendar?\n\nEscribe la fecha en formato *dd/mm/aaaa*\n(Ej: 25/03/2026)' + MENU_HINT;
+        const dateOpts = this.buildDateOptions(config);
+        if (dateOpts.length === 0) {
+          await this.clearSession(session.userPhone);
+          return '⚠️ No hay fechas disponibles en los próximos días. Contáctanos directamente.' + MENU_HINT;
+        }
+        const dateOptDates = dateOpts.map((o) => o.date);
+        await this.updateSession(session.userPhone, 'schedule_date', { dateOptions: dateOptDates });
+        let dateMsg = '📅 ¿Para qué fecha deseas agendar?\n\n';
+        dateOpts.forEach((opt, i) => {
+          dateMsg += `${i + 1}. ${opt.label}\n`;
+        });
+        dateMsg += '\nEscribe el *número* de la opción o la fecha en formato *dd/mm/aaaa*' + MENU_HINT;
+        return dateMsg;
       }
       case '2': {
         try {
@@ -169,9 +180,17 @@ export class ClassicCalendarFlowHandler {
   }
 
   private async handleScheduleDate(session: SessionState, userText: string, config: CalendarConfig): Promise<string> {
-    const date = this.parseStrictDate(userText.trim());
+    const input = userText.trim();
+    let date: string | null = null;
+    const numInput = parseInt(input, 10);
+    const dateOptions = (session.sessionData['dateOptions'] as string[] | undefined) ?? [];
+    if (!isNaN(numInput) && numInput >= 1 && numInput <= dateOptions.length) {
+      date = dateOptions[numInput - 1];
+    } else {
+      date = this.parseStrictDate(input);
+    }
     if (!date) {
-      return '❌ Formato de fecha inválido.\n\nPor favor escribe la fecha en formato *dd/mm/aaaa*\n(Ej: 25/03/2026)' + MENU_HINT;
+      return '❌ Opción inválida.\n\nEscribe el *número* de la opción o la fecha en formato *dd/mm/aaaa*\n(Ej: 25/03/2026)' + MENU_HINT;
     }
 
     const pastCheck = this.calendar.validateDateNotPast(date);
@@ -185,14 +204,31 @@ export class ClassicCalendarFlowHandler {
       }
     }
 
-    await this.updateSession(session.userPhone, 'schedule_time', { ...session.sessionData, date });
-    return `📅 Fecha: *${this.formatDateSpanish(date)}*\n\n¿A qué hora? (Ej: 14:00, 3pm)` + MENU_HINT;
+    const timeOpts = this.buildTimeOptions(config, date);
+    await this.updateSession(session.userPhone, 'schedule_time', { ...session.sessionData, date, timeOptions: timeOpts });
+    if (timeOpts.length > 0) {
+      let timeMsg = `📅 Fecha: *${this.formatDateSpanish(date)}*\n\n🕐 ¿A qué hora?\n\n`;
+      timeOpts.forEach((t, i) => {
+        timeMsg += `${i + 1}. *${t}*\n`;
+      });
+      timeMsg += '\nEscribe el *número* de la opción o la hora en formato *HH:MM*' + MENU_HINT;
+      return timeMsg;
+    }
+    return `📅 Fecha: *${this.formatDateSpanish(date)}*\n\n🕐 ¿A qué hora? (Ej: 14:00, 3pm)` + MENU_HINT;
   }
 
   private async handleScheduleTime(session: SessionState, userText: string, contactName: string, config: CalendarConfig): Promise<string> {
-    const time = this.resolveTime(userText);
+    const input = userText.trim();
+    let time: string | null = null;
+    const numInput = parseInt(input, 10);
+    const timeOptions = (session.sessionData['timeOptions'] as string[] | undefined) ?? [];
+    if (!isNaN(numInput) && numInput >= 1 && numInput <= timeOptions.length) {
+      time = timeOptions[numInput - 1];
+    } else {
+      time = this.resolveTime(input);
+    }
     if (!time) {
-      return '❌ Formato de hora inválido.\n\nEscribe la hora en formato *HH:MM* o *HHam/pm*\n(Ej: 14:00, 3pm, 10:30am)' + MENU_HINT;
+      return '❌ Opción inválida.\n\nEscribe el *número* de la opción o la hora en formato *HH:MM*\n(Ej: 14:00, 3pm, 10:30am)' + MENU_HINT;
     }
 
     const date = session.sessionData['date'] as string;
@@ -328,6 +364,72 @@ export class ClassicCalendarFlowHandler {
       await this.clearSession(session.userPhone);
       return '❌ No pude reagendar el evento.\n\n_Escribe *calendario* para volver al menú de calendario._';
     }
+  }
+
+  // ── Date/Time option builders ──
+
+  private buildDateOptions(config: CalendarConfig): { label: string; date: string }[] {
+    const dayNamesEs = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+    const dayNamesShort = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+    const monthNamesShort = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    const dayBusKeys = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+
+    const options: { label: string; date: string }[] = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    for (let offset = 0; offset < 14 && options.length < 7; offset++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() + offset);
+      const dayKey = dayBusKeys[d.getDay()];
+      if (config.businessHours && !config.businessHours[dayKey]) continue;
+
+      const dateStr = d.toISOString().slice(0, 10);
+      const dayShort = dayNamesShort[d.getDay()];
+      const monthShort = monthNamesShort[d.getMonth()];
+      const dayNum = d.getDate();
+      const dayNameFull = dayNamesEs[d.getDay()];
+      const dayNameCap = dayNameFull.charAt(0).toUpperCase() + dayNameFull.slice(1);
+
+      let label: string;
+      if (offset === 0) {
+        label = `Hoy (${dayShort} ${dayNum} ${monthShort})`;
+      } else if (offset === 1) {
+        label = `Mañana (${dayShort} ${dayNum} ${monthShort})`;
+      } else {
+        label = `${dayNameCap} (${dayNum} ${monthShort})`;
+      }
+
+      options.push({ label, date: dateStr });
+    }
+
+    return options;
+  }
+
+  private buildTimeOptions(config: CalendarConfig, date: string): string[] {
+    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const dayOfWeek = dayNames[new Date(date + 'T12:00:00').getDay()];
+    const hours = config.businessHours[dayOfWeek];
+    if (!hours) return [];
+
+    const [startH, startM] = hours.start.split(':').map(Number);
+    const [endH, endM] = hours.end.split(':').map(Number);
+    const startMinutes = startH * 60 + startM;
+    const endMinutes = endH * 60 + endM;
+    const slotDuration = config.defaultDuration;
+    const minAdvanceTime = new Date(Date.now() + config.minAdvanceHours * 3600000);
+
+    const slots: string[] = [];
+    for (let currentMin = startMinutes; currentMin + slotDuration <= endMinutes; currentMin += slotDuration) {
+      const slotHour = Math.floor(currentMin / 60);
+      const slotMin = currentMin % 60;
+      const timeStr = `${String(slotHour).padStart(2, '0')}:${String(slotMin).padStart(2, '0')}`;
+      const slotDateTime = new Date(`${date}T${timeStr}:00`);
+      if (slotDateTime < minAdvanceTime) continue;
+      slots.push(timeStr);
+    }
+
+    return slots;
   }
 
   // ── Helpers ──

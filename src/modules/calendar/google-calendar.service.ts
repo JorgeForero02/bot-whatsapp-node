@@ -214,6 +214,49 @@ export class GoogleCalendarService {
     }
   }
 
+  async getFreeSlots(date: string, config: CalendarConfig): Promise<string[]> {
+    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const dayOfWeek = dayNames[new Date(date + 'T12:00:00').getDay()];
+    const hours = config.businessHours[dayOfWeek];
+    if (!hours) return [];
+
+    const data = await this.getEventsByDateRange(date, date);
+    const events = data.items ?? [];
+
+    const [startH, startM] = hours.start.split(':').map(Number);
+    const [endH, endM] = hours.end.split(':').map(Number);
+    const startMinutes = startH * 60 + startM;
+    const endMinutes = endH * 60 + endM;
+    const slotDuration = config.defaultDuration;
+    const minAdvanceTime = new Date(Date.now() + config.minAdvanceHours * 3600000);
+
+    const slots: string[] = [];
+    for (let currentMin = startMinutes; currentMin + slotDuration <= endMinutes; currentMin += slotDuration) {
+      const slotHour = Math.floor(currentMin / 60);
+      const slotMin = currentMin % 60;
+      const timeStr = `${String(slotHour).padStart(2, '0')}:${String(slotMin).padStart(2, '0')}`;
+
+      const slotStart = new Date(`${date}T${timeStr}:00`);
+      if (slotStart < minAdvanceTime) continue;
+
+      const slotEndMin = currentMin + slotDuration;
+      const slotEndStr = `${String(Math.floor(slotEndMin / 60)).padStart(2, '0')}:${String(slotEndMin % 60).padStart(2, '0')}`;
+      const slotEnd = new Date(`${date}T${slotEndStr}:00`);
+
+      const overlap = events.some((event) => {
+        const evStart = new Date(event.start.dateTime ?? event.start.date ?? '');
+        const evEnd = new Date(event.end.dateTime ?? event.end.date ?? '');
+        return slotStart < evEnd && slotEnd > evStart;
+      });
+
+      if (!overlap) {
+        slots.push(timeStr);
+      }
+    }
+
+    return slots;
+  }
+
   validateDateFormat(dateText: string): string | null {
     const numericMatch = dateText.match(/(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})/);
     if (numericMatch) {
@@ -265,6 +308,28 @@ export class GoogleCalendarService {
     }
     if (lower.includes('hoy')) {
       return now.toISOString().slice(0, 10);
+    }
+
+    // Handle weekday names (e.g., "miércoles", "el lunes", "próximo viernes")
+    const weekdays: Record<string, number> = {
+      domingo: 0, lunes: 1, martes: 2, miércoles: 3, miercoles: 3,
+      jueves: 4, viernes: 5, sábado: 6, sabado: 6,
+    };
+
+    for (const [dayName, targetDay] of Object.entries(weekdays)) {
+      if (lower.includes(dayName)) {
+        const today = now.getDay();
+        let daysToAdd = targetDay - today;
+        
+        // If the target day is today or in the past this week, move to next week
+        if (daysToAdd <= 0) {
+          daysToAdd += 7;
+        }
+        
+        const d = new Date(now);
+        d.setDate(d.getDate() + daysToAdd);
+        return d.toISOString().slice(0, 10);
+      }
     }
 
     return null;

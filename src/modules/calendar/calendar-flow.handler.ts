@@ -8,10 +8,11 @@ import { calendarFlowState } from '../database/schema/calendar-flow-state.schema
 import { loadCalendarConfig } from './calendar-config.helper';
 import type { CalendarConfig } from './google-calendar.service';
 
-const MAX_ATTEMPTS = 2;
+// PHP usa 5 attempts — paridad restaurada
+const MAX_ATTEMPTS = 5;
 const FLOW_EXPIRY_MINUTES = 30;
-const MENU_HINT = '\n\n_Escribe *cancelar* para salir del asistente de calendario._';
-const EXIT_WORDS = ['cancelar', 'salir', 'volver', 'regresar', 'exit'];
+const MENU_HINT = '\n\n_Escribe *cancelar* si deseas salir del proceso._';
+const EXIT_WORD = 'cancelar';
 
 type FlowStep =
   | 'expecting_date'
@@ -83,8 +84,7 @@ export class CalendarFlowHandler {
   }
 
   private isExitCommand(text: string): boolean {
-    const lower = text.trim().toLowerCase();
-    return EXIT_WORDS.some((w) => lower === w);
+    return text.trim().toLowerCase() === EXIT_WORD;
   }
 
   private async startFlow(
@@ -110,11 +110,11 @@ export class CalendarFlowHandler {
 
         if (resolvedDate) {
           await this.createFlowState(userPhone, conversationId, 'expecting_time', resolvedDate, null, null);
-          return `📅 Perfecto, anotado para el *${this.formatDateSpanish(resolvedDate)}*.\n\n¿A qué hora te gustaría? (Ej: 14:00 o 3pm)` + MENU_HINT;
+          return `📅 Perfecto, anotado para el *${this.formatDateSpanish(resolvedDate)}*.\n\n¿A qué hora te vendría bien? Puedes decirme algo como "a las 2 de la tarde" o "14:00".` + MENU_HINT;
         }
 
         await this.createFlowState(userPhone, conversationId, 'expecting_date', null, null, null);
-        return '📅 ¡Claro! ¿Para qué fecha te gustaría agendar? (Ej: 25/03/2026, mañana, 15 de abril)' + MENU_HINT;
+        return '📅 ¡Claro! ¿Para qué fecha te gustaría agendar? Puedes decirme "mañana", "el próximo viernes" o una fecha específica.' + MENU_HINT;
       }
 
       case 'list': {
@@ -132,10 +132,16 @@ export class CalendarFlowHandler {
         const date = this.resolveDate(dateRange);
         if (date) {
           try {
-            const available = await this.calendar.checkAvailability(date, 8, 18);
-            return available
-              ? `✅ El *${this.formatDateSpanish(date)}* tiene disponibilidad.`
-              : `❌ El *${this.formatDateSpanish(date)}* ya tiene eventos agendados. ¿Deseas ver los horarios disponibles?`;
+            const freeSlots = await this.calendar.getFreeSlots(date, config);
+            if (freeSlots.length > 0) {
+              let msg = `✅ El *${this.formatDateSpanish(date)}* tiene los siguientes horarios disponibles:\n\n`;
+              freeSlots.forEach((slot, i) => {
+                msg += `${i + 1}. *${slot}*\n`;
+              });
+              msg += '\n¿Deseas agendar una cita? Solo dime la hora.';
+              return msg;
+            }
+            return `❌ El *${this.formatDateSpanish(date)}* no tiene horarios disponibles. ¿Deseas consultar otro día?`;
           } catch {
             return '❌ No pude verificar la disponibilidad. Intenta de nuevo.';
           }
@@ -157,7 +163,7 @@ export class CalendarFlowHandler {
             const start = new Date(ev.start.dateTime ?? ev.start.date ?? '');
             msg += `${i + 1}. *${ev.summary}* — ${this.formatDateTime(start)}\n`;
           });
-          msg += '\nResponde con el número del evento.' + MENU_HINT;
+          msg += '\nDime el número del evento que quieres cancelar.' + MENU_HINT;
           return msg;
         } catch {
           return '❌ No pude obtener tus eventos. Intenta de nuevo.';
@@ -178,7 +184,7 @@ export class CalendarFlowHandler {
             const start = new Date(ev.start.dateTime ?? ev.start.date ?? '');
             msg += `${i + 1}. *${ev.summary}* — ${this.formatDateTime(start)}\n`;
           });
-          msg += '\nResponde con el número del evento.' + MENU_HINT;
+          msg += '\nDime el número del evento que quieres mover.' + MENU_HINT;
           return msg;
         } catch {
           return '❌ No pude obtener tus eventos. Intenta de nuevo.';
@@ -198,6 +204,8 @@ export class CalendarFlowHandler {
         return this.handleExpectingDate(state, userText, config);
       case 'expecting_time':
         return this.handleExpectingTime(state, userText, contactName, config);
+      case 'expecting_service':
+        return this.handleExpectingService(state, userText, contactName, config);
       case 'expecting_confirmation':
         return this.handleExpectingConfirmation(state, userText, contactName, config);
       case 'expecting_cancel_selection':
@@ -222,7 +230,7 @@ export class CalendarFlowHandler {
         return '❌ No pude entender la fecha. El proceso ha sido cancelado. Intenta de nuevo cuando gustes.';
       }
       await this.incrementAttempts(state.userPhone);
-      return 'No entendí la fecha. Por favor usa un formato como: 25/03/2026, mañana, o 15 de abril.' + MENU_HINT;
+      return 'No pude entender esa fecha. ¿Podrías decírmela de otra forma? Por ejemplo: "mañana", "el 25 de marzo" o "próximo lunes".' + MENU_HINT;
     }
 
     const pastCheck = this.calendar.validateDateNotPast(date);
@@ -241,7 +249,7 @@ export class CalendarFlowHandler {
     }
 
     await this.updateFlowFields(state.userPhone, { extractedDate: date, currentStep: 'expecting_time', attempts: 0 });
-    return `📅 Perfecto, anotado para el *${this.formatDateSpanish(date)}*.\n\n¿A qué hora te gustaría? (Ej: 14:00, 3pm)` + MENU_HINT;
+    return `📅 Perfecto, anotado para el *${this.formatDateSpanish(date)}*.\n\n¿A qué hora te vendría bien?` + MENU_HINT;
   }
 
   private async handleExpectingTime(state: FlowState, userText: string, contactName: string, config: CalendarConfig): Promise<string> {
@@ -252,7 +260,7 @@ export class CalendarFlowHandler {
         return '❌ No pude entender la hora. El proceso ha sido cancelado.';
       }
       await this.incrementAttempts(state.userPhone);
-      return 'No entendí la hora. Por favor usa un formato como: 14:00, 3pm, 15:30.' + MENU_HINT;
+      return 'No pude entender esa hora. ¿Podrías decírmela de otra forma? Por ejemplo: "a las 3 de la tarde" o "14:00".' + MENU_HINT;
     }
 
     const date = state.extractedDate!;
@@ -280,6 +288,29 @@ export class CalendarFlowHandler {
 
     await this.updateFlowFields(state.userPhone, {
       extractedTime: time,
+      currentStep: 'expecting_service',
+      attempts: 0,
+    });
+
+    return `✅ Horario *${time}* anotado.\n\n¿Para qué servicio o motivo es la cita?` + MENU_HINT;
+  }
+
+  private async handleExpectingService(state: FlowState, userText: string, contactName: string, config: CalendarConfig): Promise<string> {
+    const service = userText.trim();
+    if (!service || service.length < 2) {
+      if (state.attempts + 1 >= MAX_ATTEMPTS) {
+        await this.clearFlow(state.userPhone);
+        return '❌ No se recibió el motivo de la cita. El proceso ha sido cancelado.';
+      }
+      await this.incrementAttempts(state.userPhone);
+      return 'Por favor cuéntame para qué servicio o motivo necesitas la cita.' + MENU_HINT;
+    }
+
+    const date = state.extractedDate!;
+    const time = state.extractedTime!;
+
+    await this.updateFlowFields(state.userPhone, {
+      extractedService: service,
       currentStep: 'expecting_confirmation',
       attempts: 0,
     });
@@ -288,8 +319,9 @@ export class CalendarFlowHandler {
       `📋 *Resumen de tu cita:*\n\n` +
       `📅 Fecha: *${this.formatDateSpanish(date)}*\n` +
       `🕐 Hora: *${time}*\n` +
+      `💼 Servicio: *${service}*\n` +
       `⏱️ Duración: *${config.defaultDuration} minutos*\n\n` +
-      `¿Confirmas esta cita? Responde *sí* o *no*` +
+      `¿Te parece bien esta cita? Dime si la confirmo o si prefieres cambiar algo.` +
       MENU_HINT
     );
   }
@@ -302,8 +334,12 @@ export class CalendarFlowHandler {
       const time = state.extractedTime!;
       const startDt = `${date}T${time}:00`;
       const endDt = `${date}T${this.addMinutes(time, config.defaultDuration)}:00`;
-      const title = `Cita - ${contactName}`;
-      const description = `Creado desde WhatsApp por ${contactName} | Tel: ${state.userPhone}`;
+      const title = state.extractedService
+        ? `${state.extractedService} - ${contactName}`
+        : `Cita - ${contactName}`;
+      const description = state.extractedService
+        ? `Servicio: ${state.extractedService} | Creado desde WhatsApp por ${contactName} | Tel: ${state.userPhone}`
+        : `Creado desde WhatsApp por ${contactName} | Tel: ${state.userPhone}`;
 
       try {
         await this.calendar.createEvent(title, description, startDt, endDt, undefined, config);
@@ -321,8 +357,30 @@ export class CalendarFlowHandler {
       return '❌ Cita cancelada. Si deseas agendar en otro momento, solo dime.';
     }
 
+    // Detect what the user wants to change
+    const lower = userText.toLowerCase();
+    
+    if (lower.includes('duración') || lower.includes('duracion') || lower.includes('tiempo')) {
+      return `⚠️ La duración de la cita es fija: *${config.defaultDuration} minutos*.\n\n¿Deseas cambiar la fecha, hora o servicio? O dime si confirmo la cita así.`;
+    }
+    
+    if (lower.includes('fecha') || lower.includes('día') || lower.includes('dia')) {
+      await this.updateFlowFields(state.userPhone, { currentStep: 'expecting_date', attempts: 0 });
+      return '📅 ¿Para qué nueva fecha te gustaría agendar? Puedes decirme "mañana", "el próximo viernes" o una fecha específica.' + MENU_HINT;
+    }
+    
+    if (lower.includes('hora') || lower.includes('horario')) {
+      await this.updateFlowFields(state.userPhone, { currentStep: 'expecting_time', attempts: 0 });
+      return '🕐 ¿A qué nueva hora te vendría bien?' + MENU_HINT;
+    }
+    
+    if (lower.includes('servicio') || lower.includes('motivo') || lower.includes('razón') || lower.includes('razon')) {
+      await this.updateFlowFields(state.userPhone, { currentStep: 'expecting_service', attempts: 0 });
+      return '💼 ¿Para qué servicio o motivo es la cita?' + MENU_HINT;
+    }
+
     await this.incrementAttempts(state.userPhone);
-    return 'Por favor responde *sí* para confirmar o *no* para cancelar.' + MENU_HINT;
+    return 'Dime si confirmo la cita o si prefieres cambiar algo.\n\nPuedes cambiar: *fecha*, *hora* o *servicio*.\n_(La duración es fija: ' + config.defaultDuration + ' minutos)_' + MENU_HINT;
   }
 
   private async handleCancelSelection(state: FlowState, userText: string): Promise<string> {
@@ -335,7 +393,7 @@ export class CalendarFlowHandler {
         return '❌ Selección inválida. Proceso cancelado.';
       }
       await this.incrementAttempts(state.userPhone);
-      return `Por favor responde con un número del 1 al ${events.length}.` + MENU_HINT;
+      return `Por favor dime solo el número del evento (del 1 al ${events.length}) que deseas cancelar.` + MENU_HINT;
     }
 
     const event = events[idx];
@@ -359,7 +417,7 @@ export class CalendarFlowHandler {
         return '❌ Selección inválida. Proceso cancelado.';
       }
       await this.incrementAttempts(state.userPhone);
-      return `Por favor responde con un número del 1 al ${events.length}.` + MENU_HINT;
+      return `Por favor dime solo el número del evento (del 1 al ${events.length}) que deseas reagendar.` + MENU_HINT;
     }
 
     const event = events[idx];
@@ -368,7 +426,7 @@ export class CalendarFlowHandler {
       eventTitle: event.id,
       attempts: 0,
     });
-    return `📅 Reagendando *${event.summary}*\n\n¿Para qué nueva fecha? (Ej: mañana, 25/03/2026)` + MENU_HINT;
+    return `📅 Reagendando *${event.summary}*\n\n¿Para qué nueva fecha te gustaría moverla?` + MENU_HINT;
   }
 
   private async handleRescheduleDate(state: FlowState, userText: string, config: CalendarConfig): Promise<string> {
@@ -379,7 +437,7 @@ export class CalendarFlowHandler {
         return '❌ No pude entender la fecha. Proceso cancelado.';
       }
       await this.incrementAttempts(state.userPhone);
-      return 'No entendí la fecha. Usa un formato como: 25/03/2026 o mañana.' + MENU_HINT;
+      return 'No pude entender esa fecha. ¿Podrías decírmela de otra forma?' + MENU_HINT;
     }
 
     const pastCheck = this.calendar.validateDateNotPast(date);
@@ -389,7 +447,7 @@ export class CalendarFlowHandler {
     }
 
     await this.updateFlowFields(state.userPhone, { extractedDate: date, currentStep: 'expecting_reschedule_time', attempts: 0 });
-    return `📅 Nueva fecha: *${this.formatDateSpanish(date)}*\n\n¿A qué hora? (Ej: 14:00, 3pm)` + MENU_HINT;
+    return `📅 Nueva fecha: *${this.formatDateSpanish(date)}*\n\n¿A qué hora te vendría bien?` + MENU_HINT;
   }
 
   private async handleRescheduleTime(state: FlowState, userText: string, config: CalendarConfig): Promise<string> {
@@ -438,16 +496,9 @@ export class CalendarFlowHandler {
     const overlap = await this.calendar.checkEventOverlap(date, time, endTime);
     if (overlap.overlap) return '⚠️ Ya hay un evento en ese horario. ¿Deseas elegir otra hora?' + MENU_HINT;
 
-    await this.createFlowState(userPhone, conversationId, 'expecting_confirmation', date, time, null);
+    await this.createFlowState(userPhone, conversationId, 'expecting_service', date, time, null);
 
-    return (
-      `📋 *Resumen de tu cita:*\n\n` +
-      `📅 Fecha: *${this.formatDateSpanish(date)}*\n` +
-      `🕐 Hora: *${time}*\n` +
-      `⏱️ Duración: *${config.defaultDuration} minutos*\n\n` +
-      `¿Confirmas esta cita? Responde *sí* o *no*` +
-      MENU_HINT
-    );
+    return `✅ Fecha *${this.formatDateSpanish(date)}* y hora *${time}* anotadas.\n\n¿Cuál es el motivo o servicio de tu cita? (Ej: consulta médica, corte de cabello, revisión)` + MENU_HINT;
   }
 
   // ── Date/Time resolution helpers ──

@@ -1,5 +1,5 @@
 import { Injectable, Logger, BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
-import { eq, sql, desc } from 'drizzle-orm';
+import { eq, sql, desc, count, sum } from 'drizzle-orm';
 import { createHash } from 'node:crypto';
 import { DatabaseService } from '../database/database.service';
 import { RagService } from '../rag/rag.service';
@@ -95,5 +95,27 @@ export class DocumentService {
     await this.vectorSearch.deleteVectorsByDocument(id);
     await this.db.db.delete(documents).where(eq(documents.id, id));
     this.logger.log(`Document deleted: ${doc['originalName']}`);
+  }
+
+  async getStats(): Promise<{ totalDocuments: number; byType: Record<string, number>; totalSize: number; totalChunks: number }> {
+    const rows = await this.db.db
+      .select({
+        fileType: documents.fileType,
+        fileSize: documents.fileSize,
+        chunkCount: documents.chunkCount,
+      })
+      .from(documents);
+
+    const byType: Record<string, number> = {};
+    let totalSize = 0;
+    let totalChunks = 0;
+
+    for (const row of rows) {
+      byType[row.fileType] = (byType[row.fileType] ?? 0) + 1;
+      totalSize += row.fileSize ?? 0;
+      totalChunks += row.chunkCount ?? 0;
+    }
+
+    return { totalDocuments: rows.length, byType, totalSize, totalChunks };
   }
 }

@@ -329,10 +329,8 @@
       /* Mobile: slide panels */
       if (listPanel) listPanel.classList.add('mobile-hidden');
       if (chatPanel) chatPanel.classList.add('mobile-open');
-    } else {
-      /* Desktop: collapse list, expand chat to full width */
-      if (listPanel) listPanel.classList.add('desktop-hidden');
     }
+    /* Desktop: both panels remain visible side-by-side */
 
     /* Header */
     const headerEl = $('chat-header');
@@ -363,10 +361,8 @@
     if (window.innerWidth < 768) {
       if (listPanel) listPanel.classList.remove('mobile-hidden');
       if (chatPanel) chatPanel.classList.remove('mobile-open');
-    } else {
-      /* Desktop: restore list panel */
-      if (listPanel) listPanel.classList.remove('desktop-hidden');
     }
+    /* Desktop: no action needed, list always visible */
 
     const headerEl = $('chat-header');
     if (headerEl) headerEl.classList.add('hidden');

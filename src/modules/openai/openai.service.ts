@@ -190,7 +190,7 @@ export class OpenAIService {
 
     if (tools.length > 0) {
       body['tools'] = tools;
-      body['tool_choice'] = 'auto';
+      body['tool_choice'] = 'required';
     }
 
     try {
@@ -232,7 +232,7 @@ export class OpenAIService {
         type: 'function',
         function: {
           name: 'schedule_appointment',
-          description: 'El usuario quiere agendar, reservar, programar o sacar una cita, turno, reunión, consulta o cualquier tipo de evento.',
+          description: 'Usar cuando el usuario expresa intención de crear una nueva cita. Incluye: palabras explícitas ("agendar", "reservar", "sacar cita"), confirmaciones a preguntas del bot sobre agendar ("sí, quiero", "claro", "ok"), o contexto donde claramente quiere programar algo nuevo. NO usar si ya tiene una cita y quiere modificarla o verla.',
           parameters: {
             type: 'object',
             properties: {
@@ -249,7 +249,7 @@ export class OpenAIService {
         type: 'function',
         function: {
           name: 'check_availability',
-          description: 'El usuario pregunta por disponibilidad sin necesariamente querer agendar.',
+          description: 'Usar cuando el usuario pregunta por horarios disponibles o disponibilidad SIN confirmar que quiere agendar. Ejemplos: "¿qué horarios tienes?", "¿hay disponibilidad el martes?", "¿cuándo puedes atenderme?". Si después de preguntar confirma que quiere agendar, usar schedule_appointment.',
           parameters: {
             type: 'object',
             properties: {
@@ -263,7 +263,7 @@ export class OpenAIService {
         type: 'function',
         function: {
           name: 'list_appointments',
-          description: 'El usuario quiere consultar, ver o saber sus citas, eventos o reservas próximas.',
+          description: 'Usar cuando el usuario quiere VER o CONSULTAR sus citas existentes sin intención de modificarlas. Incluye: "ver mis citas", "cuáles son mis citas", "mis próximas citas", "tengo alguna cita", o preguntas sobre sus eventos programados. NO usar si menciona modificar, cancelar o reagendar (aunque pregunte primero por sus citas).',
           parameters: { type: 'object', properties: {}, required: [] },
         },
       },
@@ -271,7 +271,7 @@ export class OpenAIService {
         type: 'function',
         function: {
           name: 'reschedule_appointment',
-          description: 'El usuario quiere reagendar, mover, reprogramar o cambiar la fecha/hora de una cita existente.',
+          description: 'Usar cuando el usuario quiere MODIFICAR una cita existente cambiando su fecha u hora. Incluye: palabras explícitas ("reagendar", "mover", "cambiar fecha/hora", "reprogramar"), contexto donde tiene una cita pero no puede asistir y quiere otra fecha, o confirmaciones a preguntas del bot sobre mover una cita. Usar incluso si primero pregunta "¿puedo cambiar mi cita?" y luego confirma.',
           parameters: {
             type: 'object',
             properties: {
@@ -285,7 +285,7 @@ export class OpenAIService {
         type: 'function',
         function: {
           name: 'cancel_appointment',
-          description: 'El usuario quiere cancelar o anular definitivamente una cita existente.',
+          description: 'Usar cuando el usuario quiere ELIMINAR definitivamente una cita sin reprogramarla. Incluye: palabras explícitas ("cancelar", "eliminar", "borrar", "anular cita"), contexto donde no puede asistir y NO menciona querer otra fecha, o confirmaciones a preguntas del bot sobre cancelar. NO usar si dice que quiere cambiar la fecha (eso es reschedule).',
           parameters: {
             type: 'object',
             properties: {

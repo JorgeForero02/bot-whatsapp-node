@@ -1,7 +1,7 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
-import { eq } from 'drizzle-orm';
+import { eq, and, lt } from 'drizzle-orm';
 import { WhatsAppService } from '../whatsapp/whatsapp.service';
 import { OpenAIService } from '../openai/openai.service';
 import { ConversationService } from '../conversation/conversation.service';
@@ -10,6 +10,7 @@ import { CalendarFlowHandler } from '../calendar/calendar-flow.handler';
 import { ClassicCalendarFlowHandler } from '../calendar/classic-calendar-flow.handler';
 import { ClassicBotService } from '../classic-bot/classic-bot.service';
 import { DatabaseService } from '../database/database.service';
+import { RedisService } from '../queue/redis.service';
 import { settings } from '../database/schema/settings.schema';
 import { webhookQueue } from '../database/schema/webhook-queue.schema';
 import { messages } from '../database/schema/messages.schema';
@@ -27,6 +28,7 @@ export interface WebhookJobData {
   dbQueueId?: number;
 }
 
+
 @Processor('webhook-queue')
 export class WebhookQueueProcessor extends WorkerHost {
   private readonly logger = new Logger(WebhookQueueProcessor.name);
@@ -40,19 +42,31 @@ export class WebhookQueueProcessor extends WorkerHost {
     private readonly calendarFlow: CalendarFlowHandler,
     private readonly classicBot: ClassicBotService,
     private readonly classicCalendar: ClassicCalendarFlowHandler,
+    private readonly redis: RedisService,
   ) {
     super();
   }
 
   async process(job: Job<WebhookJobData>): Promise<void> {
     const data = job.data;
-    this.logger.log(`Processing job ${job.id} from=${data.from} type=${data.type}`);
-
-    if (data.dbQueueId) {
-      await this.updateQueueStatus(data.dbQueueId, 'processing');
-    }
+    const phone = data.from;
+    const jobId = job.id ?? 'unknown';
+    const lockKey = `lock:phone:${phone}`;
+    let lockAcquired = false;
 
     try {
+      lockAcquired = await this.redis.acquireLock(lockKey, jobId, 60);
+      if (!lockAcquired) {
+        this.logger.warn(`Phone ${phone} locked, job ${jobId} will retry`);
+        throw new Error('Phone locked, retry');
+      }
+
+      this.logger.log(`Processing job ${job.id} from=${data.from} type=${data.type}`);
+
+      if (data.dbQueueId) {
+        await this.updateQueueStatus(data.dbQueueId, 'processing');
+      }
+
       const botMode = await this.getBotMode();
 
       const unsupportedMedia = ['image', 'video', 'document', 'sticker', 'location', 'contacts'];
@@ -157,6 +171,10 @@ export class WebhookQueueProcessor extends WorkerHost {
       this.logger.error(`Job ${job.id} failed: ${errorMsg}`);
       if (data.dbQueueId) await this.updateQueueStatus(data.dbQueueId, 'failed', errorMsg);
       throw error;
+    } finally {
+      if (lockAcquired) {
+        await this.redis.releaseLock(lockKey);
+      }
     }
   }
 

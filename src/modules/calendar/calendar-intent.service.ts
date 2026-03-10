@@ -19,8 +19,11 @@ export class CalendarIntentService {
     conversationHistory: Array<{ sender: string; message_text: string }>,
     systemPrompt: string,
   ): Promise<CalendarIntentResult> {
+    this.logger.log(`Detecting calendar intent for message: "${message.substring(0, 50)}..."`);
     try {
       const tools = [...this.openai.getCalendarTools(), this.openai.getHandoffTool()];
+      this.logger.log(`Using ${tools.length} calendar tools for intent detection`);
+      
       const response = await this.openai.generateResponseWithTools(
         message,
         '',
@@ -30,6 +33,8 @@ export class CalendarIntentService {
         500,
         conversationHistory,
       );
+      
+      this.logger.log(`OpenAI response: tool_calls=${response.tool_calls?.length ?? 0}, content=${response.content?.substring(0, 50) ?? 'null'}`);
       return this.parseResponse(response);
     } catch (error: unknown) {
       this.logger.error('Error detecting intent', error instanceof Error ? error.message : '');
@@ -49,7 +54,7 @@ export class CalendarIntentService {
         args = JSON.parse(toolCall.function.arguments) as Record<string, unknown>;
       } catch { /* empty args */ }
 
-      this.logger.log(`Calendar tool invoked: ${fnName}`);
+      this.logger.log(`✅ Calendar tool invoked: ${fnName} with args: ${JSON.stringify(args)}`);
 
       switch (fnName) {
         case 'schedule_appointment':
@@ -110,11 +115,7 @@ export class CalendarIntentService {
       }
     }
 
-    return {
-      intent: 'none',
-      extractedData: {},
-      confidence: 'low',
-      originalResponse: (message.content as string) ?? null,
-    };
+    this.logger.log('❌ No calendar tool called - returning intent: none');
+    return { intent: 'none', extractedData: {}, confidence: 'low', originalResponse: (message.content as string) ?? null };
   }
 }

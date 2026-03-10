@@ -166,6 +166,12 @@ export class PanelController {
     return { success: true, data: docs };
   }
 
+  @Get('documents/stats')
+  async getDocumentStats(): Promise<Record<string, unknown>> {
+    const stats = await this.documents.getStats();
+    return { success: true, data: stats };
+  }
+
   @Delete('documents/:id')
   async deleteDocument(@Param('id') id: string): Promise<Record<string, unknown>> {
     await this.documents.deleteDocument(parseInt(id, 10));
