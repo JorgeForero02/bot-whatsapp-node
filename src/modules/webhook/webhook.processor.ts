@@ -29,7 +29,7 @@ export interface WebhookJobData {
 }
 
 
-@Processor('webhook-queue')
+@Processor('webhook-queue', { concurrency: 20 })
 export class WebhookQueueProcessor extends WorkerHost {
   private readonly logger = new Logger(WebhookQueueProcessor.name);
 
@@ -58,7 +58,8 @@ export class WebhookQueueProcessor extends WorkerHost {
       lockAcquired = await this.redis.acquireLock(lockKey, jobId, 60);
       if (!lockAcquired) {
         this.logger.warn(`Phone ${phone} locked, job ${jobId} will retry`);
-        throw new Error('Phone locked, retry');
+        await job.moveToDelayed(Date.now() + 2000, job.token);
+        return;
       }
 
       this.logger.log(`Processing job ${job.id} from=${data.from} type=${data.type}`);
@@ -232,6 +233,7 @@ export class WebhookQueueProcessor extends WorkerHost {
       context = ragResult.context;
     } catch (error: unknown) {
       if (error instanceof Error && error.message === 'INSUFFICIENT_FUNDS') {
+        await this.handleInsufficientFunds(error);
         response = 'El servicio de IA no está disponible en este momento. Un agente te atenderá pronto.';
       } else {
         this.logger.error('RAG generation failed', error instanceof Error ? error.message : '');
@@ -292,6 +294,16 @@ export class WebhookQueueProcessor extends WorkerHost {
   }
 
   private async getSystemPrompt(): Promise<string> {
+    const cacheKey = 'cache:system_prompt';
+    try {
+      const cached = await this.redis.getClient().get(cacheKey);
+      if (cached) {
+        return cached;
+      }
+    } catch {
+      // Fall through to DB query
+    }
+
     try {
       const result = await this.db.db
         .select()
@@ -300,7 +312,13 @@ export class WebhookQueueProcessor extends WorkerHost {
         .limit(1);
 
       if (result.length > 0 && result[0].settingValue) {
-        return result[0].settingValue;
+        const value = result[0].settingValue;
+        try {
+          await this.redis.getClient().set(cacheKey, value, 'EX', 300);
+        } catch {
+          // Best effort cache
+        }
+        return value;
       }
     } catch {
       // Fall through to default
@@ -309,6 +327,16 @@ export class WebhookQueueProcessor extends WorkerHost {
   }
 
   private async getBotMode(): Promise<string> {
+    const cacheKey = 'cache:bot_mode';
+    try {
+      const cached = await this.redis.getClient().get(cacheKey);
+      if (cached) {
+        return cached;
+      }
+    } catch {
+      // Fall through to DB query
+    }
+
     try {
       const result = await this.db.db
         .select()
@@ -317,7 +345,13 @@ export class WebhookQueueProcessor extends WorkerHost {
         .limit(1);
 
       if (result.length > 0 && result[0].settingValue) {
-        return result[0].settingValue;
+        const value = result[0].settingValue;
+        try {
+          await this.redis.getClient().set(cacheKey, value, 'EX', 300);
+        } catch {
+          // Best effort cache
+        }
+        return value;
       }
     } catch {
       // Fall through to default
