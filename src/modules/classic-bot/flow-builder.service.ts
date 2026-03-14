@@ -237,6 +237,10 @@ export class FlowBuilderService {
       throw new BadRequestException('Invalid import data: missing nodes array');
     }
 
+    await this.db.db.delete(flowOptions);
+    await this.db.db.delete(flowNodes);
+    this.logger.log('Deleted all existing flows before import');
+
     let imported = 0;
     const idMap = new Map<number, number>();
 
