@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { eq, desc, sql, and, gte } from 'drizzle-orm';
+import { eq, desc, sql, gte } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service';
 import { conversations } from '../database/schema/conversations.schema';
 import { messages } from '../database/schema/messages.schema';
@@ -187,25 +187,73 @@ export class ConversationService {
     totalMessages: number;
     todayMessages: number;
   }> {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
 
-    const [totalConvResult, activeConvResult, pendingResult, todayConvResult, totalMsgResult, todayMsgResult] = await Promise.all([
-      this.db.db.select({ count: sql<number>`COUNT(*)` }).from(conversations),
-      this.db.db.select({ count: sql<number>`COUNT(*)` }).from(conversations).where(eq(conversations.status, 'active')),
-      this.db.db.select({ count: sql<number>`COUNT(*)` }).from(conversations).where(eq(conversations.status, 'pending_human')),
-      this.db.db.select({ count: sql<number>`COUNT(*)` }).from(conversations).where(gte(conversations.createdAt, today)),
-      this.db.db.select({ count: sql<number>`COUNT(*)` }).from(messages),
-      this.db.db.select({ count: sql<number>`COUNT(*)` }).from(messages).where(gte(messages.createdAt, today)),
-    ]);
+      const convStats = await this.db.db.select({
+        total: sql<number>`COUNT(*)`,
+        active: sql<number>`SUM(CASE WHEN ${conversations.status} = 'active' THEN 1 ELSE 0 END)`,
+        pendingHuman: sql<number>`SUM(CASE WHEN ${conversations.status} = 'pending_human' THEN 1 ELSE 0 END)`,
+        today: sql<number>`SUM(CASE WHEN ${conversations.createdAt} >= ${today} THEN 1 ELSE 0 END)`,
+      }).from(conversations);
 
-    return {
-      totalConversations: Number(totalConvResult[0]?.count ?? 0),
-      activeConversations: Number(activeConvResult[0]?.count ?? 0),
-      pendingHumanConversations: Number(pendingResult[0]?.count ?? 0),
-      todayConversations: Number(todayConvResult[0]?.count ?? 0),
-      totalMessages: Number(totalMsgResult[0]?.count ?? 0),
-      todayMessages: Number(todayMsgResult[0]?.count ?? 0),
-    };
+      const msgStats = await this.db.db.select({
+        total: sql<number>`COUNT(*)`,
+        today: sql<number>`SUM(CASE WHEN ${messages.createdAt} >= ${today} THEN 1 ELSE 0 END)`,
+      }).from(messages);
+
+      return {
+        totalConversations: Number(convStats[0]?.total ?? 0),
+        activeConversations: Number(convStats[0]?.active ?? 0),
+        pendingHumanConversations: Number(convStats[0]?.pendingHuman ?? 0),
+        todayConversations: Number(convStats[0]?.today ?? 0),
+        totalMessages: Number(msgStats[0]?.total ?? 0),
+        todayMessages: Number(msgStats[0]?.today ?? 0),
+      };
+    } catch (error) {
+      this.logger.error('Error getting stats:', error);
+      throw error;
+    }
+  }
+
+  async getMessagesLast7Days(): Promise<{ date: string; count: number }[]> {
+    try {
+      const today = new Date();
+      const startDate = new Date(today);
+      startDate.setDate(today.getDate() - 6);
+      startDate.setHours(0, 0, 0, 0);
+
+      const rows = await this.db.db
+        .select({
+          date: sql<string>`DATE(${messages.createdAt})`,
+          count: sql<number>`COUNT(*)`,
+        })
+        .from(messages)
+        .where(gte(messages.createdAt, startDate))
+        .groupBy(sql`DATE(${messages.createdAt})`)
+        .orderBy(sql`DATE(${messages.createdAt})`);
+
+      const countsByDate = new Map<string, number>();
+      for (const row of rows) {
+        const dateStr = typeof row.date === 'string'
+          ? row.date.slice(0, 10)
+          : new Date(row.date).toISOString().slice(0, 10);
+        countsByDate.set(dateStr, Number(row.count));
+      }
+
+      const results: { date: string; count: number }[] = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(today);
+        d.setDate(today.getDate() - i);
+        const dateStr = d.toISOString().split('T')[0];
+        results.push({ date: dateStr, count: countsByDate.get(dateStr) ?? 0 });
+      }
+
+      return results;
+    } catch (error) {
+      this.logger.error('Error getting messages last 7 days:', error);
+      throw error;
+    }
   }
 }

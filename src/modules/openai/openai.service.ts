@@ -2,10 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
-import { eq } from 'drizzle-orm';
 import { CredentialService } from '../credentials/credential.service';
-import { DatabaseService } from '../database/database.service';
-import { settings } from '../database/schema/settings.schema';
+import { SettingsService } from '../settings/settings.service';
 import { writeFile, unlink } from 'node:fs/promises';
 import { createReadStream } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -48,21 +46,9 @@ export class OpenAIService {
     private readonly http: HttpService,
     private readonly config: ConfigService,
     private readonly credentials: CredentialService,
-    private readonly db: DatabaseService,
+    private readonly settings: SettingsService,
   ) {}
 
-  private async getSettingValue(key: string): Promise<string | null> {
-    try {
-      const rows = await this.db.db
-        .select()
-        .from(settings)
-        .where(eq(settings.settingKey, key))
-        .limit(1);
-      return rows.length > 0 && rows[0].settingValue ? rows[0].settingValue : null;
-    } catch {
-      return null;
-    }
-  }
 
   private async getApiKey(): Promise<string> {
     const creds = await this.credentials.getOpenAICredentials();
@@ -72,7 +58,7 @@ export class OpenAIService {
   async createEmbedding(text: string): Promise<number[]> {
     const apiKey = await this.getApiKey();
     const model =
-      (await this.getSettingValue('openai_embedding_model')) ??
+      (await this.settings.get('openai_embedding_model')) ??
       this.config.get<string>('openai.embeddingModel') ??
       'text-embedding-ada-002';
 
@@ -95,6 +81,42 @@ export class OpenAIService {
     }
   }
 
+  private buildChatMessages(
+    prompt: string,
+    context: string,
+    systemPrompt: string | null,
+    conversationHistory: HistoryMessage[],
+  ): ChatMessage[] {
+    const defaultSystemPrompt = 'Eres un asistente virtual útil y amigable. Responde de manera clara y concisa basándote en el contexto proporcionado.';
+    const messages: ChatMessage[] = [
+      { role: 'system', content: systemPrompt ?? defaultSystemPrompt },
+    ];
+
+    if (context) {
+      messages.push({ role: 'system', content: `Contexto relevante:\n${context}` });
+    }
+
+    for (const msg of conversationHistory) {
+      if (!msg.message_text) continue;
+      messages.push({
+        role: msg.sender === 'bot' ? 'assistant' : 'user',
+        content: msg.message_text,
+      });
+    }
+
+    messages.push({ role: 'user', content: prompt });
+    return messages;
+  }
+
+  private async resolveModel(modelOverride: string | null = null): Promise<string> {
+    return (
+      modelOverride ??
+      (await this.settings.get('openai_model')) ??
+      this.config.get<string>('openai.model') ??
+      'gpt-3.5-turbo'
+    );
+  }
+
   async generateResponse(
     prompt: string,
     context = '',
@@ -105,28 +127,8 @@ export class OpenAIService {
     modelOverride: string | null = null,
   ): Promise<string> {
     const apiKey = await this.getApiKey();
-    const model =
-      modelOverride ??
-      (await this.getSettingValue('openai_model')) ??
-      this.config.get<string>('openai.model') ??
-      'gpt-3.5-turbo';
-
-    const messages: ChatMessage[] = [
-      { role: 'system', content: systemPrompt ?? 'Eres un asistente virtual útil y amigable. Responde de manera clara y concisa basándote en el contexto proporcionado.' },
-    ];
-
-    if (context) {
-      messages.push({ role: 'system', content: `Contexto relevante:\n${context}` });
-    }
-
-    for (const msg of conversationHistory) {
-      messages.push({
-        role: msg.sender === 'bot' ? 'assistant' : 'user',
-        content: msg.message_text,
-      });
-    }
-
-    messages.push({ role: 'user', content: prompt });
+    const model = await this.resolveModel(modelOverride);
+    const messages = this.buildChatMessages(prompt, context, systemPrompt, conversationHistory);
 
     try {
       const { data } = await firstValueFrom(
@@ -159,27 +161,8 @@ export class OpenAIService {
     conversationHistory: HistoryMessage[] = [],
   ): Promise<ToolCallResponse> {
     const apiKey = await this.getApiKey();
-    const model =
-      (await this.getSettingValue('openai_model')) ??
-      this.config.get<string>('openai.model') ??
-      'gpt-3.5-turbo';
-
-    const messages: ChatMessage[] = [
-      { role: 'system', content: systemPrompt ?? 'Eres un asistente virtual útil y amigable.' },
-    ];
-
-    if (context) {
-      messages.push({ role: 'system', content: `Contexto relevante:\n${context}` });
-    }
-
-    for (const msg of conversationHistory) {
-      messages.push({
-        role: msg.sender === 'bot' ? 'assistant' : 'user',
-        content: msg.message_text,
-      });
-    }
-
-    messages.push({ role: 'user', content: prompt });
+    const model = await this.resolveModel();
+    const messages = this.buildChatMessages(prompt, context, systemPrompt, conversationHistory);
 
     const body: Record<string, unknown> = {
       model,
@@ -326,7 +309,7 @@ export class OpenAIService {
       this.logger.log(`Whisper: Audio transcribed, length=${text.length}`);
       return text;
     } finally {
-      try { await unlink(tempPath); } catch { /* ignore */ }
+      try { await unlink(tempPath); } catch { }
     }
   }
 
@@ -354,6 +337,7 @@ export class OpenAIService {
         this.logger.error(`OpenAI Insufficient Funds: ${msg ?? 'Quota exceeded'}`);
         throw new Error('INSUFFICIENT_FUNDS');
       }
+      this.logger.error(`OpenAI ${context} HTTP ${status}: ${msg ?? JSON.stringify(resp.response?.data)}`);
     }
     this.logger.error(`OpenAI ${context} Error: ${error instanceof Error ? error.message : String(error)}`);
   }

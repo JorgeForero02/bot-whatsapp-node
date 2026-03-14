@@ -31,7 +31,7 @@ function showOnboardingError(title, detail) {
 
 async function loadProgress() {
     try {
-        const res  = await fetch('/api/onboarding-progress', { cache: 'no-store' });
+        const res  = await apiFetch('/api/onboarding-progress', { cache: 'no-store' });
         const rawText = await res.text();
         let data;
         try {
@@ -337,7 +337,7 @@ async function saveWhatsApp() {
         return;
     }
     el.innerHTML = '<span style="font-size:0.875rem;color:var(--text-muted);">Guardando...</span>';
-    const res  = await fetch('/api/credentials/whatsapp', {
+    const res  = await apiFetch('/api/credentials/whatsapp', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
@@ -360,7 +360,7 @@ async function saveWhatsApp() {
 async function testWhatsApp() {
     const el = document.getElementById('wa-test-result');
     el.innerHTML = '<span style="font-size:0.875rem;color:var(--text-muted);">Probando...</span>';
-    const res  = await fetch('/api/test-connection?service=whatsapp');
+    const res  = await apiFetch('/api/test-connection?service=whatsapp');
     const data = await res.json();
     el.innerHTML = `<span style="font-size:0.875rem;color:${data.success ? 'var(--color-success)' : 'var(--color-error)'}">${data.message}</span>`;
 }
@@ -368,7 +368,7 @@ async function testWhatsApp() {
 async function testOpenAI() {
     const el = document.getElementById('oai-test-result');
     el.innerHTML = '<span style="font-size:0.875rem;color:var(--text-muted);">Probando...</span>';
-    const res  = await fetch('/api/test-connection?service=openai');
+    const res  = await apiFetch('/api/test-connection?service=openai');
     const data = await res.json();
     el.innerHTML = `<span style="font-size:0.875rem;color:${data.success ? 'var(--color-success)' : 'var(--color-error)'}">${data.message}</span>`;
 }
@@ -377,7 +377,7 @@ async function runTest(service, statusId) {
     const el = document.getElementById(statusId);
     el.textContent = 'Probando...';
     el.style.color = 'var(--text-muted)';
-    const res  = await fetch('/api/test-connection?service=' + service);
+    const res  = await apiFetch('/api/test-connection?service=' + service);
     const data = await res.json();
     el.textContent = data.success ? '✓ OK' : '✗ Error';
     el.style.color = data.success ? 'var(--color-success)' : 'var(--color-error)';
@@ -390,7 +390,7 @@ async function saveAndAdvanceOpenAI() {
     const mode = modeRadio ? modeRadio.value : 'ai';
 
     // Save bot_mode
-    await fetch('/api/settings', {
+    await apiFetch('/api/settings', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({bot_mode: mode})
@@ -404,12 +404,12 @@ async function saveAndAdvanceOpenAI() {
     const apiKey = document.getElementById('oai-key').value.trim();
     if (!apiKey) { alert('La API Key es obligatoria para el modo IA.'); return; }
 
-    await fetch('/api/credentials/openai', {
+    await apiFetch('/api/credentials/openai', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({apiKey: apiKey})
     });
-    await fetch('/api/settings', {
+    await apiFetch('/api/settings', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({openai_model: document.getElementById('oai-model').value, openai_embedding_model: (document.getElementById('oai-embedding').value.trim() || 'text-embedding-ada-002')})
@@ -423,7 +423,7 @@ async function saveAndAdvancePersonality() {
     const greeting= document.getElementById('bot-greeting-input').value.trim();
     const prompt  = document.getElementById('system-prompt-input').value.trim();
 
-    await fetch('/api/settings', {
+    await apiFetch('/api/settings', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
@@ -447,12 +447,12 @@ async function saveAndAdvanceCalendar() {
         el.innerHTML = '<span style="font-size:0.875rem;color:var(--color-error);">Client ID, Client Secret y Access Token son obligatorios.</span>';
         return;
     }
-    await fetch('/api/credentials/google', {
+    await apiFetch('/api/credentials/google', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({clientId: clientId, clientSecret: clientSecret, accessToken: accessToken, refreshToken: refreshToken, calendarId: calendarId})
     });
-    await fetch('/api/settings', {
+    await apiFetch('/api/settings', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({calendar_enabled: 'true'})
@@ -462,7 +462,7 @@ async function saveAndAdvanceCalendar() {
 }
 
 async function checkAndAdvanceFlowBuilder() {
-    const res  = await fetch('/api/flows');
+    const res  = await apiFetch('/api/flows');
     const data = await res.json();
     const el   = document.getElementById('flow-check-result');
     const nodes = data.data || [];
@@ -477,7 +477,7 @@ async function checkAndAdvanceFlowBuilder() {
 
 async function skipOnboardingStep(step) {
     try {
-        const res  = await fetch('/api/onboarding-progress', {
+        const res  = await apiFetch('/api/onboarding-progress', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({action: 'skip', step: step})
@@ -503,7 +503,7 @@ async function skipOnboardingStep(step) {
 
 async function advanceStep(step) {
     try {
-        const res  = await fetch('/api/onboarding-progress', {
+        const res  = await apiFetch('/api/onboarding-progress', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({action: 'complete', step: step})
@@ -532,7 +532,7 @@ async function activateBot() {
 
 async function resetOnboarding() {
     if (!confirm('¿Reiniciar el proceso de configuración desde el principio?')) return;
-    await fetch('/api/onboarding-reset', {method: 'POST'});
+    await apiFetch('/api/onboarding-reset', {method: 'POST'});
     await loadProgress();
 }
 

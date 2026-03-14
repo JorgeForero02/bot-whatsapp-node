@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { LoggerModule } from 'nestjs-pino';
 import configuration from './config/configuration';
 import { DatabaseModule } from './modules/database/database.module';
 import { EncryptionModule } from './modules/encryption/encryption.module';
@@ -16,6 +17,7 @@ import { CalendarModule } from './modules/calendar/calendar.module';
 import { ClassicBotModule } from './modules/classic-bot/classic-bot.module';
 import { WebhookModule } from './modules/webhook/webhook.module';
 import { PanelModule } from './modules/panel/panel.module';
+import { SettingsModule } from './modules/settings/settings.module';
 import { OnboardingGuard } from './common/guards/onboarding.guard';
 
 @Module({
@@ -24,7 +26,20 @@ import { OnboardingGuard } from './common/guards/onboarding.guard';
       isGlobal: true,
       load: [configuration],
     }),
+    LoggerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => {
+        const isProd = config.get<string>('app.nodeEnv') === 'production';
+        return {
+          pinoHttp: {
+            level: isProd ? 'info' : 'debug',
+            ...(isProd ? {} : { transport: { target: 'pino-pretty', options: { colorize: true } } }),
+          },
+        };
+      },
+    }),
     DatabaseModule,
+    SettingsModule,
     EncryptionModule,
     StorageModule,
     CredentialsModule,

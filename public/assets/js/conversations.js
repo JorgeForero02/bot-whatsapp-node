@@ -111,7 +111,7 @@
     const signal = loadConvsAbort.signal;
     try {
       const url = status ? `${bp}/api/conversations?status=${status}` : `${bp}/api/conversations`;
-      const res  = await fetch(url, { signal, cache: 'no-store' });
+      const res  = await apiFetch(url, { signal, cache: 'no-store' });
       const data = await res.json();
       if (!data.success) throw new Error(data.error || 'Error');
       allConversations = (data.data && data.data.conversations) || [];
@@ -130,7 +130,7 @@
     const signal = refreshConvsAbort.signal;
     try {
       const url = status ? `${bp}/api/conversations?status=${status}` : `${bp}/api/conversations`;
-      const res  = await fetch(url, { signal, cache: 'no-store' });
+      const res  = await apiFetch(url, { signal, cache: 'no-store' });
       const data = await res.json();
       if (!data.success) return;
       allConversations = (data.data && data.data.conversations) || [];
@@ -211,7 +211,7 @@
 
   async function loadMessages(conversationId, append = false) {
     try {
-      const res  = await fetch(`${bp}/api/conversations/${conversationId}/messages`);
+      const res  = await apiFetch(`${bp}/api/conversations/${conversationId}/messages`);
       const data = await res.json();
       if (!data.success) throw new Error(data.error || 'Error');
 
@@ -280,7 +280,7 @@
       if (!currentConversationId || !lastCheckTime) return;
       try {
         const url = `${bp}/api/conversations/${currentConversationId}/messages`;
-        const res  = await fetch(url, { cache: 'no-store' });
+        const res  = await apiFetch(url, { cache: 'no-store' });
         const data = await res.json();
         if (!data.success) return;
         const chatMessages = $('chat-messages');
@@ -397,7 +397,7 @@
     if (sendButton) { sendButton.disabled = true; sendButton.classList.add('btn-loading'); }
 
     try {
-      const res  = await fetch(`${bp}/api/conversations/${currentConversationId}/reply`, {
+      const res  = await apiFetch(`${bp}/api/conversations/${currentConversationId}/reply`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ message }),
@@ -425,7 +425,7 @@
 
     if (newState) {
       try {
-        const res  = await fetch(`${bp}/api/check-openai-status`, { cache: 'no-store' });
+        const res  = await apiFetch(`${bp}/api/check-openai-status`, { cache: 'no-store' });
         const data = await res.json();
         if (data.success && data.data && !data.data.configured) {
           if (window.showToast) showToast('Fondos insuficientes en OpenAI. Por favor recarga tu cuenta.', 'warning');
@@ -436,7 +436,7 @@
     }
 
     try {
-      const res  = await fetch(`${bp}/api/conversations/${currentConversationId}/toggle-ai`, {
+      const res  = await apiFetch(`${bp}/api/conversations/${currentConversationId}/toggle-ai`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ enabled: newState }),

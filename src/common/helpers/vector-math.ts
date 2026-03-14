@@ -26,12 +26,21 @@ export function euclideanDistance(a: number[], b: number[]): number {
   return Math.sqrt(sum);
 }
 
-export function serializeVector(vector: number[]): string {
+export function serializeVector(vector: number[]): Buffer {
   const buffer = Buffer.alloc(vector.length * 4);
   for (let i = 0; i < vector.length; i++) {
     buffer.writeFloatLE(vector[i], i * 4);
   }
-  return buffer.toString('hex');
+  return buffer;
+}
+
+function isHexBuffer(buf: Buffer): boolean {
+  for (let i = 0; i < Math.min(buf.length, 16); i++) {
+    const b = buf[i];
+    const isHexChar = (b >= 0x30 && b <= 0x39) || (b >= 0x61 && b <= 0x66) || (b >= 0x41 && b <= 0x46);
+    if (!isHexChar) return false;
+  }
+  return true;
 }
 
 export function unserializeVector(data: string | Buffer | Uint8Array): number[] {
@@ -39,7 +48,12 @@ export function unserializeVector(data: string | Buffer | Uint8Array): number[] 
   if (typeof data === 'string') {
     buf = Buffer.from(data, 'hex');
   } else {
-    buf = Buffer.isBuffer(data) ? data : Buffer.from(data);
+    const rawBuf = Buffer.isBuffer(data) ? data : Buffer.from(data);
+    if (isHexBuffer(rawBuf)) {
+      buf = Buffer.from(rawBuf.toString('ascii'), 'hex');
+    } else {
+      buf = rawBuf;
+    }
   }
   const length = buf.length / 4;
   const vector: number[] = new Array(length);

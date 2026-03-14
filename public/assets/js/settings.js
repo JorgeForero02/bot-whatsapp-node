@@ -1,6 +1,6 @@
 async function loadSettings() {
     try {
-        const response = await fetch('/api/settings', { cache: 'no-store' });
+        const response = await apiFetch('/api/settings', { cache: 'no-store' });
         const data = await response.json();
         
         if (data.success && data.data) {
@@ -19,6 +19,9 @@ async function loadSettings() {
                 if (radio) radio.checked = true;
                 updateClassicModeLink(s.bot_mode);
             }
+            if (s.openai_embedding_model) {
+                document.getElementById('openai-embedding-model').value = s.openai_embedding_model;
+            }
         }
     } catch (error) {
         console.error('Error loading settings:', error);
@@ -32,11 +35,12 @@ async function saveSettings() {
         errorMessage: document.getElementById('error-message').value,
         contextMessagesCount: parseInt(document.getElementById('context-messages-count').value),
         calendarEnabled: document.getElementById('calendar-enabled').checked,
-        botMode: document.querySelector('input[name="bot-mode"]:checked')?.value || 'ai'
+        botMode: document.querySelector('input[name="bot-mode"]:checked')?.value || 'ai',
+        embeddingModel: document.getElementById('openai-embedding-model').value
     };
     
     try {
-        const saveRes = await fetch('/api/settings', {
+        const saveRes = await apiFetch('/api/settings', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
@@ -45,7 +49,8 @@ async function saveSettings() {
                 error_message: settings.errorMessage,
                 context_messages_count: String(settings.contextMessagesCount),
                 calendar_enabled: String(settings.calendarEnabled),
-                bot_mode: settings.botMode
+                bot_mode: settings.botMode,
+                openai_embedding_model: settings.embeddingModel
             })
         });
         
@@ -54,13 +59,17 @@ async function saveSettings() {
         if (!data.success) {
             throw new Error(data.error || 'Error al guardar');
         }
+
+        if (data.reindexJobId) {
+            showToast('⚙️ Configuración guardada. Reindexando documentos...', 'info');
+        } else {
+            showToast('Configuración guardada correctamente', 'success');
+        }
     } catch (error) {
         console.error('Error saving settings:', error);
         showToast('Error al guardar la configuración: ' + error.message, 'error');
         return;
     }
-    
-    showToast('Configuración guardada correctamente', 'success');
 }
 
 function resetSettings() {
@@ -80,6 +89,48 @@ function resetSettings() {
             showToast('Configuración restablecida a valores por defecto', 'info');
         },
     });
+}
+
+async function forceReindex() {
+    const btn = document.getElementById('btn-reindex');
+    const status = document.getElementById('reindex-status');
+    btn.disabled = true;
+    status.textContent = 'Iniciando reindexación...';
+    try {
+        const res = await apiFetch('/api/reindex', { method: 'POST' });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Error desconocido');
+        status.textContent = `⚙️ Reindexando con ${data.model}...`;
+        pollReindexProgress(data.reindexJobId, btn, status);
+    } catch (error) {
+        status.textContent = '';
+        btn.disabled = false;
+        showToast('Error al iniciar reindexación: ' + error.message, 'error');
+    }
+}
+
+function pollReindexProgress(jobId, btn, status) {
+    const interval = setInterval(async () => {
+        try {
+            const res = await apiFetch(`/api/reindex/progress/${jobId}`, { cache: 'no-store' });
+            const data = await res.json();
+            if (!data.success) return;
+            const { progress, status: jobStatus } = data.data;
+            if (jobStatus === 'done') {
+                clearInterval(interval);
+                status.textContent = '';
+                btn.disabled = false;
+                showToast('✅ Reindexación completada. Los documentos están listos.', 'success');
+            } else if (jobStatus === 'failed') {
+                clearInterval(interval);
+                status.textContent = '';
+                btn.disabled = false;
+                showToast('❌ La reindexación falló. Revisa los logs del servidor.', 'error');
+            } else {
+                status.textContent = `⚙️ Reindexando... ${progress ?? 0}%`;
+            }
+        } catch (_) {}
+    }, 2000);
 }
 
 function updateCalendarStatusInfo(enabled) {

@@ -25,11 +25,29 @@ export class WhatsAppService {
     private readonly credentials: CredentialService,
   ) {}
 
+  private async buildMessagesUrl(): Promise<{ url: string; headers: Record<string, string> }> {
+    const creds = await this.credentials.getWhatsAppCredentials();
+    const apiVersion = this.config.get<string>('whatsapp.apiVersion') ?? 'v18.0';
+    const baseUrl = this.config.get<string>('whatsapp.baseUrl');
+    return {
+      url: `${baseUrl}/${apiVersion}/${creds.phoneNumberId}/messages`,
+      headers: { Authorization: `Bearer ${creds.accessToken}`, 'Content-Type': 'application/json' },
+    };
+  }
+
+  private async buildMediaUrl(mediaId: string): Promise<{ url: string; headers: Record<string, string> }> {
+    const creds = await this.credentials.getWhatsAppCredentials();
+    const apiVersion = this.config.get<string>('whatsapp.apiVersion') ?? 'v18.0';
+    const baseUrl = this.config.get<string>('whatsapp.baseUrl');
+    return {
+      url: `${baseUrl}/${apiVersion}/${mediaId}`,
+      headers: { Authorization: `Bearer ${creds.accessToken}` },
+    };
+  }
+
   async sendMessage(to: string, message: string): Promise<string | null> {
     try {
-      const creds = await this.credentials.getWhatsAppCredentials();
-      const apiVersion = this.config.get<string>('whatsapp.apiVersion') ?? 'v18.0';
-      const url = `${this.config.get<string>('whatsapp.baseUrl')}/${apiVersion}/${creds.phoneNumberId}/messages`;
+      const { url, headers } = await this.buildMessagesUrl();
 
       const { data } = await firstValueFrom(
         this.http.post(url, {
@@ -37,12 +55,7 @@ export class WhatsAppService {
           to,
           type: 'text',
           text: { body: message },
-        }, {
-          headers: {
-            Authorization: `Bearer ${creds.accessToken}`,
-            'Content-Type': 'application/json',
-          },
-        }),
+        }, { headers }),
       );
 
       const messageId = (data as { messages?: Array<{ id: string }> }).messages?.[0]?.id ?? null;
@@ -58,14 +71,10 @@ export class WhatsAppService {
 
   async getMediaUrl(mediaId: string): Promise<string | null> {
     try {
-      const creds = await this.credentials.getWhatsAppCredentials();
-      const apiVersion = this.config.get<string>('whatsapp.apiVersion') ?? 'v18.0';
-      const url = `${this.config.get<string>('whatsapp.baseUrl')}/${apiVersion}/${mediaId}`;
+      const { url, headers } = await this.buildMediaUrl(mediaId);
 
       const { data } = await firstValueFrom(
-        this.http.get(url, {
-          headers: { Authorization: `Bearer ${creds.accessToken}` },
-        }),
+        this.http.get(url, { headers }),
       );
 
       return (data as { url?: string }).url ?? null;
@@ -80,10 +89,10 @@ export class WhatsAppService {
     if (!mediaUrl) throw new Error('Media URL not found');
 
     try {
-      const creds = await this.credentials.getWhatsAppCredentials();
+      const { headers } = await this.buildMediaUrl(mediaId);
       const { data } = await firstValueFrom(
         this.http.get<ArrayBuffer>(mediaUrl, {
-          headers: { Authorization: `Bearer ${creds.accessToken}` },
+          headers,
           responseType: 'arraybuffer',
         }),
       );
@@ -91,27 +100,20 @@ export class WhatsAppService {
       return Buffer.from(data);
     } catch (error: unknown) {
       this.logger.error('WhatsApp Download Media Error', error instanceof Error ? error.message : '');
-      throw error; // re-throw so audio handler can send fallback message
+      throw error;
     }
   }
 
   async markAsRead(messageId: string): Promise<boolean> {
     try {
-      const creds = await this.credentials.getWhatsAppCredentials();
-      const apiVersion = this.config.get<string>('whatsapp.apiVersion') ?? 'v18.0';
-      const url = `${this.config.get<string>('whatsapp.baseUrl')}/${apiVersion}/${creds.phoneNumberId}/messages`;
+      const { url, headers } = await this.buildMessagesUrl();
 
       await firstValueFrom(
         this.http.post(url, {
           messaging_product: 'whatsapp',
           status: 'read',
           message_id: messageId,
-        }, {
-          headers: {
-            Authorization: `Bearer ${creds.accessToken}`,
-            'Content-Type': 'application/json',
-          },
-        }),
+        }, { headers }),
       );
       return true;
     } catch (error: unknown) {

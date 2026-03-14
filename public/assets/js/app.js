@@ -248,6 +248,16 @@ const Sidebar = (() => {
   return { init };
 })();
 
+window.apiFetch = function apiFetch(url, options) {
+  options = options || {};
+  options.headers = options.headers || {};
+  var token = typeof API_TOKEN !== 'undefined' ? API_TOKEN : '';
+  if (token) {
+    options.headers['Authorization'] = 'Bearer ' + token;
+  }
+  return fetch(url, options);
+};
+
 window.formatBytes = function formatBytes(bytes) {
   if (!bytes || bytes === 0) return '0 B';
   const k = 1024;

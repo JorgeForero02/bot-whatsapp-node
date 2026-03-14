@@ -108,6 +108,10 @@ export class WebhookController {
     }
 
     if (!appSecret) {
+      const nodeEnv = this.config.get<string>('app.nodeEnv');
+      if (nodeEnv === 'production') {
+        throw new ForbiddenException('app_secret must be configured in production');
+      }
       this.logger.warn('app_secret not configured — skipping webhook signature validation (dev mode)');
       return;
     }

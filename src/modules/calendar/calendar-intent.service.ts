@@ -52,9 +52,9 @@ export class CalendarIntentService {
       let args: Record<string, unknown> = {};
       try {
         args = JSON.parse(toolCall.function.arguments) as Record<string, unknown>;
-      } catch { /* empty args */ }
+      } catch { }
 
-      this.logger.log(`✅ Calendar tool invoked: ${fnName} with args: ${JSON.stringify(args)}`);
+      this.logger.log(`Calendar tool invoked: ${fnName} with args: ${JSON.stringify(args)}`);
 
       switch (fnName) {
         case 'schedule_appointment':
@@ -115,7 +115,7 @@ export class CalendarIntentService {
       }
     }
 
-    this.logger.log('❌ No calendar tool called - returning intent: none');
+    this.logger.log('No calendar tool called - returning intent: none');
     return { intent: 'none', extractedData: {}, confidence: 'low', originalResponse: (message.content as string) ?? null };
   }
 }

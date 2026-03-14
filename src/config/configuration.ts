@@ -1,5 +1,16 @@
 import { envSchema } from './env.schema';
 
+const WHATSAPP_API_VERSION = 'v21.0';
+const WHATSAPP_BASE_URL = 'https://graph.facebook.com';
+const DEFAULT_OPENAI_TEMPERATURE = 0.7;
+const DEFAULT_OPENAI_MAX_TOKENS = 500;
+const DEFAULT_RAG_CHUNK_SIZE = 900;
+const DEFAULT_RAG_CHUNK_OVERLAP = 150;
+const DEFAULT_RAG_TOP_K = 3;
+const DEFAULT_RAG_SIMILARITY_THRESHOLD = 0.7;
+const DEFAULT_MAX_UPLOAD_BYTES = 10485760;
+const DEFAULT_TIMEZONE = 'America/Bogota';
+
 export default () => {
   const parsed = envSchema.parse(process.env);
 
@@ -16,32 +27,35 @@ export default () => {
       phoneNumberId: parsed.WHATSAPP_PHONE_NUMBER_ID,
       verifyToken: parsed.WHATSAPP_VERIFY_TOKEN,
       appSecret: parsed.APP_SECRET,
-      apiVersion: 'v21.0',
-      baseUrl: 'https://graph.facebook.com',
+      apiVersion: WHATSAPP_API_VERSION,
+      baseUrl: WHATSAPP_BASE_URL,
     },
     openai: {
       apiKey: parsed.OPENAI_API_KEY,
       model: parsed.OPENAI_MODEL,
       embeddingModel: parsed.OPENAI_EMBEDDING_MODEL,
-      temperature: 0.7,
-      maxTokens: 500,
+      temperature: DEFAULT_OPENAI_TEMPERATURE,
+      maxTokens: DEFAULT_OPENAI_MAX_TOKENS,
     },
     rag: {
-      chunkSize: 500,
-      chunkOverlap: 50,
-      topK: 3,
-      similarityThreshold: 0.7,
+      chunkSize: DEFAULT_RAG_CHUNK_SIZE,
+      chunkOverlap: DEFAULT_RAG_CHUNK_OVERLAP,
+      topK: DEFAULT_RAG_TOP_K,
+      similarityThreshold: DEFAULT_RAG_SIMILARITY_THRESHOLD,
       similarityMethod: 'cosine' as const,
+      vectorSearchLimit: parsed.VECTOR_SEARCH_LIMIT,
     },
     uploads: {
-      maxSize: 10485760,
+      maxSize: DEFAULT_MAX_UPLOAD_BYTES,
       allowedTypes: ['pdf', 'txt', 'docx'] as const,
     },
     app: {
       baseUrl: parsed.APP_BASE_URL,
       debug: parsed.APP_DEBUG,
       cipherKey: parsed.APP_CIPHER_KEY,
-      timezone: 'America/Bogota',
+      timezone: DEFAULT_TIMEZONE,
+      nodeEnv: parsed.NODE_ENV,
+      apiPanelToken: parsed.API_PANEL_TOKEN,
     },
     google: {
       accessToken: parsed.GOOGLE_CALENDAR_ACCESS_TOKEN,

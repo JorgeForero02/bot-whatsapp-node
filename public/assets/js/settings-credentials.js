@@ -24,8 +24,8 @@ function updateStatus(elementId, status, message) {
 async function loadCredentials() {
     try {
         const [credRes, settingsRes] = await Promise.all([
-            fetch('/api/credentials', { cache: 'no-store' }),
-            fetch('/api/settings', { cache: 'no-store' }),
+            apiFetch('/api/credentials', { cache: 'no-store' }),
+            apiFetch('/api/settings', { cache: 'no-store' }),
         ]);
         const credData = await credRes.json();
         if (credData.success) {
@@ -53,7 +53,7 @@ async function loadCredentials() {
 
 async function saveCredentials(service, formData) {
     try {
-        const res = await fetch('/api/credentials/' + service, {
+        const res = await apiFetch('/api/credentials/' + service, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(formData)
@@ -75,7 +75,7 @@ async function testConnection(service) {
     updateStatus(statusMap[service], '', 'Probando...');
 
     try {
-        const response = await fetch('/api/test-connection?service=' + service, { cache: 'no-store' });
+        const response = await apiFetch('/api/test-connection?service=' + service, { cache: 'no-store' });
         const data = await response.json();
 
         if (data.success) {
@@ -110,7 +110,7 @@ document.getElementById('openai-form').addEventListener('submit', async function
     if (credData.apiKey) saveCredentials('openai', credData);
     if (fd.get('model')) {
         try {
-            await fetch('/api/settings', {
+            await apiFetch('/api/settings', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({openai_model: fd.get('model')}),

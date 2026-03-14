@@ -1,4 +1,4 @@
-import { mysqlTable, int, varchar, text, boolean, timestamp, index, uniqueIndex } from 'drizzle-orm/mysql-core';
+import { mysqlTable, int, varchar, text, boolean, timestamp, index, uniqueIndex, mysqlEnum } from 'drizzle-orm/mysql-core';
 
 export const documents = mysqlTable(
   'documents',
@@ -12,6 +12,7 @@ export const documents = mysqlTable(
     fileSize: int('file_size').notNull(),
     fileHash: varchar('file_hash', { length: 32 }),
     isActive: boolean('is_active').default(true),
+    reindexStatus: mysqlEnum('reindex_status', ['pending', 'processing', 'done']).notNull().default('done'),
     createdAt: timestamp('created_at').defaultNow(),
     updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
   },

@@ -84,6 +84,28 @@
         </div>
 
         <div class="card">
+          <div class="card-header"><span class="card-title">Configuración de OpenAI</span></div>
+          <div class="card-body">
+            <div class="form-group">
+                <label class="form-label" for="openai-embedding-model">Modelo de Embeddings</label>
+                <select id="openai-embedding-model" class="form-input">
+                    <option value="text-embedding-ada-002">text-embedding-ada-002 (1536 dim) — Legacy</option>
+                    <option value="text-embedding-3-small">text-embedding-3-small (1536 dim) — Recomendado</option>
+                    <option value="text-embedding-3-large">text-embedding-3-large (3072 dim) — Mayor calidad</option>
+                </select>
+                <p class="form-hint">⚠️ Cambiar el modelo reindexará automáticamente todos los documentos. Esto puede tardar varios minutos.</p>
+            </div>
+            <div style="margin-top:0.75rem;">
+                <button onclick="forceReindex()" id="btn-reindex" class="btn btn-secondary btn-md">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                    Forzar Reindexación
+                </button>
+                <span id="reindex-status" style="margin-left:0.75rem;font-size:0.8125rem;color:var(--text-muted);"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
           <div class="card-header"><span class="card-title">Comportamiento</span></div>
           <div class="card-body">
             <div class="form-group">

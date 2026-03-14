@@ -1,0 +1,17 @@
+node_modules
+dist
+.env
+.env.*
+!.env.example
+.git
+.gitignore
+*.md
+vista php/
+**/*.spec.ts
+**/*.test.ts
+vitest.config.ts
+drizzle.config.ts
+tailwind.config.js
+.dockerignore
+Dockerfile
+docker-compose*.yml

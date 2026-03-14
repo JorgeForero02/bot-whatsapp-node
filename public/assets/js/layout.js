@@ -26,7 +26,7 @@
         try {
             var bp = typeof BASE_PATH !== 'undefined' ? BASE_PATH : '';
 
-            var oRes  = await fetch(bp + '/api/onboarding-progress', { cache: 'no-store' });
+            var oRes  = await apiFetch(bp + '/api/onboarding-progress', { cache: 'no-store' });
             var oData = await oRes.json();
             if (oData.success && oData.data) {
                 var progress = oData.data;
@@ -48,7 +48,7 @@
                 }
             }
 
-            var sRes   = await fetch(bp + '/api/settings', { cache: 'no-store' });
+            var sRes   = await apiFetch(bp + '/api/settings', { cache: 'no-store' });
             var sData  = await sRes.json();
             var isClassic = sData.success && sData.data && sData.data.bot_mode === 'classic';
 

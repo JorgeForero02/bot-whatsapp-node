@@ -1,9 +1,12 @@
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { Logger } from '@nestjs/common';
+import { Logger as PinoLogger } from 'nestjs-pino';
 import { join } from 'node:path';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+
+const MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024;
 
 async function bootstrap(): Promise<void> {
   const logger = new Logger('Bootstrap');
@@ -17,13 +20,20 @@ async function bootstrap(): Promise<void> {
   const instance = app.getHttpAdapter().getInstance();
 
   await instance.register(
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    require('@fastify/multipart') as Parameters<typeof instance.register>[0],
-    { limits: { fileSize: 10 * 1024 * 1024 } },
+    require('@fastify/rate-limit') as Parameters<typeof instance.register>[0],
+    {
+      max: 100,
+      timeWindow: '1 minute',
+      allowList: ['127.0.0.1', '::1'],
+    },
   );
 
   await instance.register(
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require('@fastify/multipart') as Parameters<typeof instance.register>[0],
+    { limits: { fileSize: MAX_UPLOAD_SIZE_BYTES } },
+  );
+
+  await instance.register(
     require('@fastify/static') as Parameters<typeof instance.register>[0],
     {
       root: join(__dirname, '..', 'public'),
@@ -42,7 +52,7 @@ async function bootstrap(): Promise<void> {
     },
   );
 
-
+  app.useLogger(app.get(PinoLogger));
   app.useGlobalFilters(new AllExceptionsFilter());
 
   const port = process.env['PORT'] ?? 3000;

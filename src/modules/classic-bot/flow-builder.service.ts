@@ -241,18 +241,16 @@ export class FlowBuilderService {
     const idMap = new Map<number, number>();
 
     for (const nodeData of data.nodes) {
-      // Soportar JSON legacy en snake_case (ej. example-flow.json)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const legacyNode = nodeData as Record<string, any>;
-      const triggerKeywords = nodeData.triggerKeywords ?? legacyNode['trigger_keywords'] ?? [];
-      const messageText = nodeData.messageText ?? legacyNode['message_text'];
-      const nextNodeId = nodeData.nextNodeId ?? legacyNode['next_node_id'] ?? null;
-      const isRoot = nodeData.isRoot ?? legacyNode['is_root'] ?? false;
-      const requiresCalendar = nodeData.requiresCalendar ?? legacyNode['requires_calendar'] ?? false;
-      const matchAnyInput = nodeData.matchAnyInput ?? legacyNode['match_any_input'] ?? false;
-      const isFarewell = nodeData.isFarewell ?? legacyNode['is_farewell'] ?? false;
-      const positionOrder = nodeData.positionOrder ?? legacyNode['position_order'] ?? 0;
-      const isActive = nodeData.isActive ?? legacyNode['is_active'] ?? true;
+      const legacyNode = nodeData as unknown as Record<string, unknown>;
+      const triggerKeywords = (nodeData.triggerKeywords ?? legacyNode['trigger_keywords'] ?? []) as string[];
+      const messageText = (nodeData.messageText ?? legacyNode['message_text']) as string;
+      const nextNodeId = (nodeData.nextNodeId ?? legacyNode['next_node_id'] ?? null) as number | null;
+      const isRoot = (nodeData.isRoot ?? legacyNode['is_root'] ?? false) as boolean;
+      const requiresCalendar = (nodeData.requiresCalendar ?? legacyNode['requires_calendar'] ?? false) as boolean;
+      const matchAnyInput = (nodeData.matchAnyInput ?? legacyNode['match_any_input'] ?? false) as boolean;
+      const isFarewell = (nodeData.isFarewell ?? legacyNode['is_farewell'] ?? false) as boolean;
+      const positionOrder = (nodeData.positionOrder ?? legacyNode['position_order'] ?? 0) as number;
+      const isActive = (nodeData.isActive ?? legacyNode['is_active'] ?? true) as boolean;
 
       const oldId = nodeData.id;
       const newId = await this.saveNode(null, {
@@ -288,17 +286,16 @@ export class FlowBuilderService {
 
       if (nodeData.options) {
         for (const opt of nodeData.options) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const legacyOpt = opt as Record<string, any>;
-          const optionKeywords = opt.optionKeywords ?? legacyOpt['option_keywords'] ?? [];
-          const nextId = opt.nextNodeId ?? legacyOpt['next_node_id'] ?? null;
+          const legacyOpt = opt as Record<string, unknown>;
+          const optionKeywords = (opt.optionKeywords ?? legacyOpt['option_keywords'] ?? []) as string[];
+          const nextId = (opt.nextNodeId ?? legacyOpt['next_node_id'] ?? null) as number | null;
           const mappedNextId = nextId ? idMap.get(nextId) ?? nextId : null;
           await this.db.db.insert(flowOptions).values({
             nodeId: newId,
             optionText: opt.optionText,
             optionKeywords,
             nextNodeId: mappedNextId,
-            positionOrder: opt.positionOrder ?? legacyOpt['position_order'] ?? 0,
+            positionOrder: (opt.positionOrder ?? legacyOpt['position_order'] ?? 0) as number,
           });
         }
       }

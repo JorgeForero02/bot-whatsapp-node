@@ -196,12 +196,13 @@ function escapeHtml(text) {
 
 async function loadDashboard() {
   try {
-    const [statsRes, convsRes, connRes, settingsRes, docsRes] = await Promise.allSettled([
-      fetch(bp + '/api/dashboard-stats', { cache: 'no-store' }),
-      fetch(bp + '/api/conversations?page=1', { cache: 'no-store' }),
-      fetch(bp + '/api/test-connection', { cache: 'no-store' }),
-      fetch(bp + '/api/settings', { cache: 'no-store' }),
-      fetch(bp + '/api/documents', { cache: 'no-store' }),
+    const [statsRes, chartRes, convsRes, connRes, settingsRes, docsRes] = await Promise.allSettled([
+      apiFetch(bp + '/api/dashboard-stats', { cache: 'no-store' }),
+      apiFetch(bp + '/api/dashboard-chart', { cache: 'no-store' }),
+      apiFetch(bp + '/api/conversations?page=1', { cache: 'no-store' }),
+      apiFetch(bp + '/api/test-connection', { cache: 'no-store' }),
+      apiFetch(bp + '/api/settings', { cache: 'no-store' }),
+      apiFetch(bp + '/api/documents', { cache: 'no-store' }),
     ]);
 
     if (statsRes.status === 'fulfilled') {
@@ -209,7 +210,7 @@ async function loadDashboard() {
       if (d.success && d.data) {
         const s = d.data;
         setStatCard('sc-today-val',    s.totalConversations ?? '—');
-        setStatCard('sc-messages-val', s.todayMessages ?? s.totalMessages ?? '—');
+        setStatCard('sc-messages-val', s.todayMessages ?? '—');
         setStatCard('sc-pending-val',  s.pendingHumanConversations ?? '—');
         let docCount = '—';
         if (docsRes.status === 'fulfilled') {
@@ -219,17 +220,35 @@ async function loadDashboard() {
           } catch(_) {}
         }
         setStatCard('sc-docs-val', docCount);
-
-        const chartData   = Array(7).fill(0);
-        if (s.todayMessages) chartData[6] = s.todayMessages;
-        const today       = new Date();
-        const chartLabels = Array.from({ length: 7 }, (_, i) => {
-          const d = new Date(today);
-          d.setDate(today.getDate() - (6 - i));
-          return d.toLocaleDateString('es', { weekday: 'short', day: 'numeric' });
-        });
-        if (typeof Chart !== 'undefined') initChart(chartLabels, chartData);
+      } else {
+        setStatCard('sc-today-val', 'Error');
+        setStatCard('sc-messages-val', 'Error');
+        setStatCard('sc-pending-val', 'Error');
+        setStatCard('sc-docs-val', 'Error');
+        console.error('Dashboard stats error:', d.error || 'Unknown error');
       }
+    } else {
+      setStatCard('sc-today-val', 'Error');
+      setStatCard('sc-messages-val', 'Error');
+      setStatCard('sc-pending-val', 'Error');
+      setStatCard('sc-docs-val', 'Error');
+      console.error('Failed to fetch dashboard stats:', statsRes.reason);
+    }
+
+    if (chartRes.status === 'fulfilled') {
+      const d = await chartRes.value.json();
+      if (d.success && d.data && Array.isArray(d.data)) {
+        const chartLabels = d.data.map(item => {
+          const date = new Date(item.date);
+          return date.toLocaleDateString('es', { weekday: 'short', day: 'numeric' });
+        });
+        const chartData = d.data.map(item => item.count);
+        if (typeof Chart !== 'undefined') initChart(chartLabels, chartData);
+      } else {
+        console.error('Dashboard chart error:', d.error || 'Unknown error');
+      }
+    } else {
+      console.error('Failed to fetch dashboard chart:', chartRes.reason);
     }
 
     if (convsRes.status === 'fulfilled') {
@@ -248,7 +267,7 @@ async function loadDashboard() {
 
     let waOk = null, oaiOk = null, gcOk = null;
     try {
-      const credRes = await fetch(bp + '/api/credentials', { cache: 'no-store' });
+      const credRes = await apiFetch(bp + '/api/credentials', { cache: 'no-store' });
       const credData = await credRes.json();
       if (credData.success && credData.data) {
         waOk  = credData.data.whatsapp  ? credData.data.whatsapp.configured  : false;
@@ -260,7 +279,7 @@ async function loadDashboard() {
 
     if (calendarEnabled) {
       try {
-        const gcEvRes = await fetch(bp + '/api/calendar-events', { cache: 'no-store' });
+        const gcEvRes = await apiFetch(bp + '/api/calendar-events', { cache: 'no-store' });
         const gcEvData = await gcEvRes.json();
         renderCalendarEvents(gcEvData.success ? (gcEvData.data || []) : [], true);
       } catch(_) { renderCalendarEvents([], true); }
@@ -275,7 +294,7 @@ async function loadDashboard() {
 
 async function loadOnboardingBanner() {
   try {
-    const res  = await fetch(bp + '/api/onboarding-progress', { cache: 'no-store' });
+    const res  = await apiFetch(bp + '/api/onboarding-progress', { cache: 'no-store' });
     const data = await res.json();
     if (!data.success) return;
 

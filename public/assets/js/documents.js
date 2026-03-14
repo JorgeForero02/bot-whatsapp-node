@@ -2,7 +2,7 @@ function viewDocument(id, name) {
   var bp = typeof BASE_PATH !== 'undefined' ? BASE_PATH : '';
   var body = '<div style="display:flex;align-items:center;justify-content:center;padding:2rem;"><div class="spinner"></div></div>';
   var backdrop = showModal({ title: _esc(name), size: 'lg', body: body });
-  fetch(bp + '/api/documents/' + id + '/content', { cache: 'no-store' })
+  apiFetch(bp + '/api/documents/' + id + '/content', { cache: 'no-store' })
     .then(function(r){ return r.json(); })
     .then(function(data){
       if (!data.success) throw new Error(data.error || 'Error');
@@ -46,6 +46,8 @@ function uploadDocument() {
 
   var xhr = new XMLHttpRequest();
   xhr.open('POST', bp + '/api/documents/upload');
+  var token = typeof API_TOKEN !== 'undefined' ? API_TOKEN : '';
+  if (token) xhr.setRequestHeader('Authorization', 'Bearer ' + token);
 
   xhr.upload.addEventListener('progress', function(e) {
     if (e.lengthComputable) {
@@ -90,7 +92,7 @@ function _esc(text) {
 
 function _deleteDocument(id) {
   var bp = typeof BASE_PATH !== 'undefined' ? BASE_PATH : '';
-  fetch(bp + '/api/documents/' + id, { method: 'DELETE' })
+  apiFetch(bp + '/api/documents/' + id, { method: 'DELETE' })
     .then(function(r){ return r.json(); })
     .then(function(data){
       if (!data.success) throw new Error(data.error || 'Error');
@@ -105,7 +107,7 @@ function _deleteDocument(id) {
 
 function _loadStats() {
   var bp = typeof BASE_PATH !== 'undefined' ? BASE_PATH : '';
-  fetch(bp + '/api/documents', { cache: 'no-store' })
+  apiFetch(bp + '/api/documents', { cache: 'no-store' })
     .then(function(r){ return r.json(); })
     .then(function(data){
       if (!data.success || !data.data) return;
@@ -129,7 +131,7 @@ function _loadDocuments() {
 
   grid.innerHTML = '<div style="grid-column:1/-1;display:flex;align-items:center;justify-content:center;padding:3rem;"><div class="spinner spinner-lg"></div></div>';
 
-  fetch(bp + '/api/documents', { cache: 'no-store' })
+  apiFetch(bp + '/api/documents', { cache: 'no-store' })
     .then(function(r){ return r.json(); })
     .then(function(data){
       if (!data.success) throw new Error(data.error || 'Error');

@@ -1,9 +1,8 @@
 import { Controller, Get, Res, Logger } from '@nestjs/common';
 import { FastifyReply } from 'fastify';
+import { ConfigService } from '@nestjs/config';
 import { OnboardingService } from '../onboarding/onboarding.service';
-import { DatabaseService } from '../database/database.service';
-import { eq } from 'drizzle-orm';
-import { settings } from '../database/schema/settings.schema';
+import { SettingsService } from '../settings/settings.service';
 
 @Controller()
 export class ViewController {
@@ -11,7 +10,8 @@ export class ViewController {
 
   constructor(
     private readonly onboarding: OnboardingService,
-    private readonly db: DatabaseService,
+    private readonly settings: SettingsService,
+    private readonly config: ConfigService,
   ) {}
 
   private async getLayoutData(activePage: string): Promise<Record<string, unknown>> {
@@ -25,20 +25,18 @@ export class ViewController {
         total: progress.totalCount,
         percent: Math.round((progress.completedCount / progress.totalCount) * 100),
       };
-    } catch { /* table might not exist */ }
+    } catch { }
 
     try {
-      const modeRow = await this.db.db
-        .select()
-        .from(settings)
-        .where(eq(settings.settingKey, 'bot_mode'))
-        .limit(1);
-      showFlowBuilder = modeRow.length > 0 && modeRow[0].settingValue === 'classic';
-    } catch { /* ignore */ }
+      const botMode = await this.settings.get('bot_mode');
+      showFlowBuilder = botMode === 'classic';
+    } catch { }
 
+    const apiToken = this.config.get<string>('app.apiPanelToken') ?? '';
     return {
       onboarding,
       showFlowBuilder,
+      apiToken,
       [`is${activePage}`]: true,
     };
   }
@@ -135,13 +133,9 @@ export class ViewController {
     const data = await this.getLayoutData('FlowBuilder');
     let calendarEnabled = false;
     try {
-      const calRow = await this.db.db
-        .select()
-        .from(settings)
-        .where(eq(settings.settingKey, 'calendar_enabled'))
-        .limit(1);
-      calendarEnabled = calRow.length > 0 && calRow[0].settingValue === 'true';
-    } catch { /* ignore */ }
+      const calEnabled = await this.settings.get('calendar_enabled');
+      calendarEnabled = calEnabled === 'true';
+    } catch { }
     await this.render(reply, 'flow-builder', {
       ...data,
       title: 'Constructor de Flujos',

@@ -1,4 +1,4 @@
-import { Module, OnModuleInit, Logger } from '@nestjs/common';
+import { Module, OnModuleInit, Logger, forwardRef } from '@nestjs/common';
 import { BullModule, InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { ConfigService } from '@nestjs/config';
@@ -6,6 +6,11 @@ import { BullBoardModule } from '@bull-board/nestjs';
 import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
 import { FastifyAdapter as BullBoardFastifyAdapter } from '@bull-board/fastify';
 import { WebhookQueueProcessor } from '../webhook/webhook.processor';
+import { ReindexProcessor } from '../rag/reindex.processor';
+import { HandoffStrategy } from '../webhook/strategies/handoff.strategy';
+import { CalendarStrategy } from '../webhook/strategies/calendar.strategy';
+import { AiStrategy } from '../webhook/strategies/ai.strategy';
+import { ClassicStrategy } from '../webhook/strategies/classic.strategy';
 import { WhatsAppModule } from '../whatsapp/whatsapp.module';
 import { OpenAIModule } from '../openai/openai.module';
 import { ConversationModule } from '../conversation/conversation.module';
@@ -18,6 +23,7 @@ import { webhookQueue } from '../database/schema/webhook-queue.schema';
 import { eq, and, lt } from 'drizzle-orm';
 
 export const WEBHOOK_QUEUE = 'webhook-queue';
+export const REINDEX_QUEUE = 'reindex-queue';
 
 @Module({
   imports: [
@@ -35,6 +41,7 @@ export const WEBHOOK_QUEUE = 'webhook-queue';
       }),
     }),
     BullModule.registerQueue({ name: WEBHOOK_QUEUE }),
+    BullModule.registerQueue({ name: REINDEX_QUEUE }),
     BullBoardModule.forRoot({
       route: '/admin/queues',
       adapter: BullBoardFastifyAdapter,
@@ -43,15 +50,19 @@ export const WEBHOOK_QUEUE = 'webhook-queue';
       name: WEBHOOK_QUEUE,
       adapter: BullMQAdapter,
     }),
+    BullBoardModule.forFeature({
+      name: REINDEX_QUEUE,
+      adapter: BullMQAdapter,
+    }),
     WhatsAppModule,
     OpenAIModule,
     ConversationModule,
-    RagModule,
+    forwardRef(() => RagModule),
     CalendarModule,
     ClassicBotModule,
   ],
-  providers: [WebhookQueueProcessor, RedisService],
-  exports: [BullModule, RedisService],
+  providers: [WebhookQueueProcessor, ReindexProcessor, HandoffStrategy, CalendarStrategy, AiStrategy, ClassicStrategy],
+  exports: [BullModule],
 })
 export class QueueModule implements OnModuleInit {
   private readonly logger = new Logger(QueueModule.name);
@@ -69,8 +80,8 @@ export class QueueModule implements OnModuleInit {
 
   private async configureWorkerConcurrency(): Promise<void> {
     try {
-      await this.webhookQueue.setGlobalConcurrency(20);
-      this.logger.log('Worker concurrency set to 20');
+      await this.webhookQueue.setGlobalConcurrency(35);
+      this.logger.log('Worker concurrency set to 35');
     } catch (error: unknown) {
       this.logger.error('Failed to set worker concurrency', error instanceof Error ? error.message : '');
     }

@@ -4,6 +4,8 @@ import { createHash } from 'node:crypto';
 import { DatabaseService } from '../database/database.service';
 import { RagService } from '../rag/rag.service';
 import { VectorSearchService } from '../rag/vector-search.service';
+import { OpenAIService } from '../openai/openai.service';
+import { RedisService } from '../queue/redis.service';
 import { documents } from '../database/schema/documents.schema';
 import { extractText } from '../../common/helpers/text-processor';
 import { ConfigService } from '@nestjs/config';
@@ -16,6 +18,8 @@ export class DocumentService {
     private readonly db: DatabaseService,
     private readonly rag: RagService,
     private readonly vectorSearch: VectorSearchService,
+    private readonly openai: OpenAIService,
+    private readonly redis: RedisService,
     private readonly config: ConfigService,
   ) {}
 
@@ -67,6 +71,12 @@ export class DocumentService {
       .set({ chunkCount })
       .where(eq(documents.id, documentId));
 
+    try {
+      await this.cacheKnowledgeSummary(documentId, contentText);
+    } catch (error: unknown) {
+      this.logger.warn(`Failed to cache knowledge summary for doc ${documentId}`, error instanceof Error ? error.message : '');
+    }
+
     this.logger.log(`Document uploaded: ${originalName} (${chunkCount} chunks)`);
     return { id: documentId, chunkCount };
   }
@@ -94,6 +104,11 @@ export class DocumentService {
 
     await this.vectorSearch.deleteVectorsByDocument(id);
     await this.db.db.delete(documents).where(eq(documents.id, id));
+
+    try {
+      await this.redis.getClient().del(`knowledge:summary:${id}`);
+    } catch { }
+
     this.logger.log(`Document deleted: ${doc['originalName']}`);
   }
 
@@ -117,5 +132,33 @@ export class DocumentService {
     }
 
     return { totalDocuments: rows.length, byType, totalSize, totalChunks };
+  }
+
+  private async cacheKnowledgeSummary(docId: number, contentText: string): Promise<void> {
+    const snippet = contentText.substring(0, 3000);
+    const summary = await this.openai.generateResponse(
+      `Resume el siguiente documento en máximo 200 palabras. Solo devuelve el resumen, sin prefijos ni explicaciones:\n\n${snippet}`,
+      '',
+      'Eres un asistente que genera resúmenes concisos de documentos.',
+      0.3,
+      300,
+    );
+    await this.redis.getClient().set(`knowledge:summary:${docId}`, summary, 'EX', 3600);
+    this.logger.log(`Knowledge summary cached for doc ${docId}`);
+  }
+
+  async getKnowledgeSummary(docId: number): Promise<string | null> {
+    try {
+      const cached = await this.redis.getClient().get(`knowledge:summary:${docId}`);
+      if (cached) return cached;
+
+      const doc = await this.getDocument(docId);
+      if (!doc || !doc['contentText']) return null;
+
+      await this.cacheKnowledgeSummary(docId, doc['contentText'] as string);
+      return await this.redis.getClient().get(`knowledge:summary:${docId}`);
+    } catch {
+      return null;
+    }
   }
 }

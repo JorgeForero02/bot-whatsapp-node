@@ -3,6 +3,7 @@ import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
 import { CredentialService } from '../credentials/credential.service';
+import { DateParserService } from './date-parser.service';
 
 export interface CalendarEvent {
   id: string;
@@ -41,6 +42,7 @@ export class GoogleCalendarService {
     private readonly http: HttpService,
     private readonly config: ConfigService,
     private readonly credentials: CredentialService,
+    private readonly dateParser: DateParserService,
   ) {}
 
   private async init(): Promise<void> {
@@ -110,7 +112,7 @@ export class GoogleCalendarService {
         this.accessToken = data.access_token;
         try {
           await this.credentials.saveGoogleOAuthCredentials({ accessToken: this.accessToken });
-        } catch { /* ignore persist error */ }
+        } catch { }
         this.logger.log('Access token refreshed');
         return true;
       }
@@ -258,81 +260,7 @@ export class GoogleCalendarService {
   }
 
   validateDateFormat(dateText: string): string | null {
-    const numericMatch = dateText.match(/(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})/);
-    if (numericMatch) {
-      const day = parseInt(numericMatch[1], 10);
-      const month = parseInt(numericMatch[2], 10);
-      const year = parseInt(numericMatch[3], 10);
-      if (this.isValidDate(year, month, day)) {
-        return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-      }
-    }
-
-    const months: Record<string, number> = {
-      enero: 1, febrero: 2, marzo: 3, abril: 4, mayo: 5, junio: 6,
-      julio: 7, agosto: 8, septiembre: 9, octubre: 10, noviembre: 11, diciembre: 12,
-    };
-
-    for (const [name, num] of Object.entries(months)) {
-      const fullMatch = dateText.match(new RegExp(`(\\d{1,2})\\s+de\\s+${name}\\s+(?:del?\\s+)?(\\d{4})`, 'i'));
-      if (fullMatch) {
-        const day = parseInt(fullMatch[1], 10);
-        const year = parseInt(fullMatch[2], 10);
-        if (this.isValidDate(year, num, day)) {
-          return `${year}-${String(num).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-        }
-      }
-      const partialMatch = dateText.match(new RegExp(`(\\d{1,2})\\s+de\\s+${name}(?:\\s|$)`, 'i'));
-      if (partialMatch) {
-        const day = parseInt(partialMatch[1], 10);
-        const now = new Date();
-        let year = now.getFullYear();
-        if (!this.isValidDate(year, num, day)) continue;
-        const candidate = new Date(year, num - 1, day);
-        if (candidate < new Date(now.getFullYear(), now.getMonth(), now.getDate())) {
-          candidate.setFullYear(candidate.getFullYear() + 1);
-        }
-        return `${candidate.getFullYear()}-${String(num).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-      }
-    }
-
-    const lower = dateText.toLowerCase();
-    const now = new Date();
-    if (lower.includes('pasado mañana')) {
-      const d = new Date(now); d.setDate(d.getDate() + 2);
-      return d.toISOString().slice(0, 10);
-    }
-    if (lower.includes('mañana')) {
-      const d = new Date(now); d.setDate(d.getDate() + 1);
-      return d.toISOString().slice(0, 10);
-    }
-    if (lower.includes('hoy')) {
-      return now.toISOString().slice(0, 10);
-    }
-
-    // Handle weekday names (e.g., "miércoles", "el lunes", "próximo viernes")
-    const weekdays: Record<string, number> = {
-      domingo: 0, lunes: 1, martes: 2, miércoles: 3, miercoles: 3,
-      jueves: 4, viernes: 5, sábado: 6, sabado: 6,
-    };
-
-    for (const [dayName, targetDay] of Object.entries(weekdays)) {
-      if (lower.includes(dayName)) {
-        const today = now.getDay();
-        let daysToAdd = targetDay - today;
-        
-        // If the target day is today or in the past this week, move to next week
-        if (daysToAdd <= 0) {
-          daysToAdd += 7;
-        }
-        
-        const d = new Date(now);
-        d.setDate(d.getDate() + daysToAdd);
-        return d.toISOString().slice(0, 10);
-      }
-    }
-
-    return null;
+    return this.dateParser.parse(dateText);
   }
 
   validateDateNotPast(dateString: string): { valid: boolean; message?: string } {
@@ -399,11 +327,6 @@ export class GoogleCalendarService {
   private toRfc3339(dateTimeStr: string): string {
     const dt = new Date(dateTimeStr);
     return dt.toISOString();
-  }
-
-  private isValidDate(year: number, month: number, day: number): boolean {
-    const d = new Date(year, month - 1, day);
-    return d.getFullYear() === year && d.getMonth() === month - 1 && d.getDate() === day;
   }
 
   private buildReminders(config?: CalendarConfig): Record<string, unknown> {

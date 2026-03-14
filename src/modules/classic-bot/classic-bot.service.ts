@@ -1,10 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { eq, and, asc } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service';
+import { SettingsService } from '../settings/settings.service';
 import { flowNodes } from '../database/schema/flow-nodes.schema';
 import { flowOptions } from '../database/schema/flow-options.schema';
 import { classicFlowSessions } from '../database/schema/classic-flow-sessions.schema';
-import { settings } from '../database/schema/settings.schema';
 
 const SESSION_EXPIRY_MINUTES = 30;
 const MAX_ATTEMPTS = 3;
@@ -50,7 +50,10 @@ interface Session {
 export class ClassicBotService {
   private readonly logger = new Logger(ClassicBotService.name);
 
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly settings: SettingsService,
+  ) {}
 
   async processMessage(userPhone: string, messageText: string): Promise<ClassicBotResult> {
     const fallback = await this.getFallbackMessage();
@@ -284,17 +287,10 @@ export class ClassicBotService {
   }
 
   private async getFallbackMessage(): Promise<string> {
-    try {
-      const result = await this.db.db
-        .select()
-        .from(settings)
-        .where(eq(settings.settingKey, 'bot_fallback_message'))
-        .limit(1);
-      if (result.length > 0 && result[0].settingValue) {
-        return result[0].settingValue;
-      }
-    } catch { /* fall through to default */ }
-    return 'Lo siento, no entendí tu mensaje. Por favor intenta de nuevo o escribe "inicio" para comenzar.';
+    return this.settings.get(
+      'bot_fallback_message',
+      'Lo siento, no entendí tu mensaje. Por favor intenta de nuevo o escribe "inicio" para comenzar.',
+    );
   }
 
   async clearSession(userPhone: string): Promise<void> {

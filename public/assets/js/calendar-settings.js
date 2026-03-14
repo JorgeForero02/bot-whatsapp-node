@@ -7,7 +7,7 @@ function toggleDayInputs(day) {
 
 async function loadSettings() {
     try {
-        const response = await fetch('/api/calendar-settings', { cache: 'no-store' });
+        const response = await apiFetch('/api/calendar-settings', { cache: 'no-store' });
         const result = await response.json();
         if (!result.success) { showToast('Error al cargar', 'error'); return; }
         const data = result.data || {};
@@ -81,7 +81,7 @@ if (calendarForm) {
     });
 
     try {
-        const response = await fetch('/api/calendar-settings', {
+        const response = await apiFetch('/api/calendar-settings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)

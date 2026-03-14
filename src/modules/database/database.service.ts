@@ -22,7 +22,7 @@ export class DatabaseService implements OnModuleDestroy {
         password: this.config.get<string>('database.password') ?? '',
         database: this.config.getOrThrow<string>('database.name'),
         waitForConnections: true,
-        connectionLimit: 10,
+        connectionLimit: 25,
         timezone: '+00:00',
       });
       this._db = drizzle(this.pool, { schema, mode: 'default' });

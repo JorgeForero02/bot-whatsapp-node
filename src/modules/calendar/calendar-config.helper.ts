@@ -41,17 +41,15 @@ export async function loadCalendarConfig(db: DatabaseService): Promise<CalendarC
     if (map.has('reminders')) {
       try {
         config.reminders = JSON.parse(map.get('reminders')!);
-      } catch { /* keep defaults */ }
+      } catch { }
     }
 
     if (map.has('business_hours')) {
       try {
         config.businessHours = JSON.parse(map.get('business_hours')!);
-      } catch { /* keep defaults */ }
+      } catch { }
     }
-  } catch {
-    // Table might not exist yet, use defaults
-  }
+  } catch { }
 
   return config;
 }

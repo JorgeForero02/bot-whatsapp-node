@@ -30,6 +30,8 @@ export const envSchema = z.object({
   GOOGLE_CALENDAR_ID: z.string().default('primary'),
 
   PORT: z.coerce.number().default(3000),
+  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  API_PANEL_TOKEN: z.string().default(''),
 
   REDIS_URL: z.string().default('redis://localhost:6379'),
 
@@ -40,6 +42,8 @@ export const envSchema = z.object({
   CLOUDFLARE_R2_PUBLIC_URL: z.string().default(''),
 
   BULL_BOARD_TOKEN: z.string().default(''),
+
+  VECTOR_SEARCH_LIMIT: z.coerce.number().default(300),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;

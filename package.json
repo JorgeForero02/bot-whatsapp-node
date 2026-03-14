@@ -28,6 +28,7 @@
     "@bull-board/fastify": "^6.5.0",
     "@bull-board/nestjs": "^6.5.0",
     "@fastify/multipart": "^9.0.0",
+    "@fastify/rate-limit": "^10.3.0",
     "@fastify/static": "^8.0.0",
     "@fastify/view": "^10.0.0",
     "@nestjs/axios": "^4.0.0",

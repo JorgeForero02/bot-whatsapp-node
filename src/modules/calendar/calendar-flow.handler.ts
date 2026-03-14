@@ -6,9 +6,9 @@ import { CalendarIntentService, CalendarIntentResult } from './calendar-intent.s
 import { OpenAIService } from '../openai/openai.service';
 import { calendarFlowState } from '../database/schema/calendar-flow-state.schema';
 import { loadCalendarConfig } from './calendar-config.helper';
+import { resolveTime as sharedResolveTime, addMinutes, formatDateSpanish, formatDateTime, dayNameSpanish, filterEventsByPhone } from './calendar-date.helper';
 import type { CalendarConfig } from './google-calendar.service';
 
-// PHP usa 5 attempts — paridad restaurada
 const MAX_ATTEMPTS = 5;
 const FLOW_EXPIRY_MINUTES = 30;
 const MENU_HINT = '\n\n_Escribe *cancelar* si deseas salir del proceso._';
@@ -73,6 +73,10 @@ export class CalendarFlowHandler {
       return this.continueFlow(existing, userText, contactName);
     }
 
+    if (!this.hasCalendarKeywords(userText)) {
+      return null;
+    }
+
     const intentResult = await this.intent.detectIntent(userText, conversationHistory, systemPrompt);
     if (intentResult.intent === 'none') return null;
 
@@ -81,6 +85,17 @@ export class CalendarFlowHandler {
     }
 
     return this.startFlow(intentResult, userPhone, conversationId, userText, contactName);
+  }
+
+  private hasCalendarKeywords(text: string): boolean {
+    const keywords = [
+      'cita', 'agendar', 'agenda', 'reservar', 'reserva', 'turno',
+      'calendario', 'disponibilidad', 'horario', 'hora', 'fecha',
+      'cancelar', 'reagendar', 'mover', 'cambiar',
+      'appointment', 'schedule', 'book', 'calendar', 'available',
+    ];
+    const lowerText = text.toLowerCase();
+    return keywords.some(keyword => lowerText.includes(keyword));
   }
 
   private isExitCommand(text: string): boolean {
@@ -110,7 +125,7 @@ export class CalendarFlowHandler {
 
         if (resolvedDate) {
           await this.createFlowState(userPhone, conversationId, 'expecting_time', resolvedDate, null, null);
-          return `📅 Perfecto, anotado para el *${this.formatDateSpanish(resolvedDate)}*.\n\n¿A qué hora te vendría bien? Puedes decirme algo como "a las 2 de la tarde" o "14:00".` + MENU_HINT;
+          return `📅 Perfecto, anotado para el *${formatDateSpanish(resolvedDate)}*.\n\n¿A qué hora te vendría bien? Puedes decirme algo como "a las 2 de la tarde" o "14:00".` + MENU_HINT;
         }
 
         await this.createFlowState(userPhone, conversationId, 'expecting_date', null, null, null);
@@ -120,7 +135,7 @@ export class CalendarFlowHandler {
       case 'list': {
         try {
           const events = await this.calendar.listUpcomingEvents(20);
-          const filtered = this.filterEventsByPhone(events.items ?? [], userPhone);
+          const filtered = filterEventsByPhone(events.items ?? [], userPhone);
           return this.calendar.formatEventsForWhatsApp(filtered);
         } catch {
           return '❌ No pude consultar tus eventos. Intenta de nuevo más tarde.';
@@ -134,14 +149,14 @@ export class CalendarFlowHandler {
           try {
             const freeSlots = await this.calendar.getFreeSlots(date, config);
             if (freeSlots.length > 0) {
-              let msg = `✅ El *${this.formatDateSpanish(date)}* tiene los siguientes horarios disponibles:\n\n`;
+              let msg = `✅ El *${formatDateSpanish(date)}* tiene los siguientes horarios disponibles:\n\n`;
               freeSlots.forEach((slot, i) => {
                 msg += `${i + 1}. *${slot}*\n`;
               });
               msg += '\n¿Deseas agendar una cita? Solo dime la hora.';
               return msg;
             }
-            return `❌ El *${this.formatDateSpanish(date)}* no tiene horarios disponibles. ¿Deseas consultar otro día?`;
+            return `❌ El *${formatDateSpanish(date)}* no tiene horarios disponibles. ¿Deseas consultar otro día?`;
           } catch {
             return '❌ No pude verificar la disponibilidad. Intenta de nuevo.';
           }
@@ -152,7 +167,7 @@ export class CalendarFlowHandler {
       case 'cancel': {
         try {
           const events = await this.calendar.listUpcomingEvents(20);
-          const items = this.filterEventsByPhone(events.items ?? [], userPhone);
+          const items = filterEventsByPhone(events.items ?? [], userPhone);
           if (items.length === 0) return 'No tienes eventos próximos para cancelar.';
 
           await this.createFlowState(userPhone, conversationId, 'expecting_cancel_selection', null, null, null);
@@ -161,7 +176,7 @@ export class CalendarFlowHandler {
           let msg = '¿Cuál evento deseas cancelar?\n\n';
           items.forEach((ev: import('./google-calendar.service').CalendarEvent, i: number) => {
             const start = new Date(ev.start.dateTime ?? ev.start.date ?? '');
-            msg += `${i + 1}. *${ev.summary}* — ${this.formatDateTime(start)}\n`;
+            msg += `${i + 1}. *${ev.summary}* — ${formatDateTime(start)}\n`;
           });
           msg += '\nDime el número del evento que quieres cancelar.' + MENU_HINT;
           return msg;
@@ -173,7 +188,7 @@ export class CalendarFlowHandler {
       case 'reschedule': {
         try {
           const events = await this.calendar.listUpcomingEvents(20);
-          const items = this.filterEventsByPhone(events.items ?? [], userPhone);
+          const items = filterEventsByPhone(events.items ?? [], userPhone);
           if (items.length === 0) return 'No tienes eventos próximos para reagendar.';
 
           await this.createFlowState(userPhone, conversationId, 'expecting_reschedule_event', null, null, null);
@@ -182,7 +197,7 @@ export class CalendarFlowHandler {
           let msg = '¿Cuál evento deseas reagendar?\n\n';
           items.forEach((ev: import('./google-calendar.service').CalendarEvent, i: number) => {
             const start = new Date(ev.start.dateTime ?? ev.start.date ?? '');
-            msg += `${i + 1}. *${ev.summary}* — ${this.formatDateTime(start)}\n`;
+            msg += `${i + 1}. *${ev.summary}* — ${formatDateTime(start)}\n`;
           });
           msg += '\nDime el número del evento que quieres mover.' + MENU_HINT;
           return msg;
@@ -244,12 +259,12 @@ export class CalendarFlowHandler {
       const dayOfWeek = dayNames[new Date(date + 'T12:00:00').getDay()];
       if (!config.businessHours[dayOfWeek]) {
         await this.incrementAttempts(state.userPhone);
-        return `No atendemos los ${this.dayNameSpanish(dayOfWeek)}. Por favor elige otro día.` + MENU_HINT;
+        return `No atendemos los ${dayNameSpanish(dayOfWeek)}. Por favor elige otro día.` + MENU_HINT;
       }
     }
 
     await this.updateFlowFields(state.userPhone, { extractedDate: date, currentStep: 'expecting_time', attempts: 0 });
-    return `📅 Perfecto, anotado para el *${this.formatDateSpanish(date)}*.\n\n¿A qué hora te vendría bien?` + MENU_HINT;
+    return `📅 Perfecto, anotado para el *${formatDateSpanish(date)}*.\n\n¿A qué hora te vendría bien?` + MENU_HINT;
   }
 
   private async handleExpectingTime(state: FlowState, userText: string, contactName: string, config: CalendarConfig): Promise<string> {
@@ -279,7 +294,7 @@ export class CalendarFlowHandler {
       return advanceCheck.message! + MENU_HINT;
     }
 
-    const endTime = this.addMinutes(time, config.defaultDuration);
+    const endTime = addMinutes(time, config.defaultDuration);
     const overlap = await this.calendar.checkEventOverlap(date, time, endTime);
     if (overlap.overlap) {
       await this.incrementAttempts(state.userPhone);
@@ -317,7 +332,7 @@ export class CalendarFlowHandler {
 
     return (
       `📋 *Resumen de tu cita:*\n\n` +
-      `📅 Fecha: *${this.formatDateSpanish(date)}*\n` +
+      `📅 Fecha: *${formatDateSpanish(date)}*\n` +
       `🕐 Hora: *${time}*\n` +
       `💼 Servicio: *${service}*\n` +
       `⏱️ Duración: *${config.defaultDuration} minutos*\n\n` +
@@ -333,7 +348,7 @@ export class CalendarFlowHandler {
       const date = state.extractedDate!;
       const time = state.extractedTime!;
       const startDt = `${date}T${time}:00`;
-      const endDt = `${date}T${this.addMinutes(time, config.defaultDuration)}:00`;
+      const endDt = `${date}T${addMinutes(time, config.defaultDuration)}:00`;
       const title = state.extractedService
         ? `${state.extractedService} - ${contactName}`
         : `Cita - ${contactName}`;
@@ -344,7 +359,7 @@ export class CalendarFlowHandler {
       try {
         await this.calendar.createEvent(title, description, startDt, endDt, undefined, config);
         await this.clearFlow(state.userPhone);
-        return `✅ ¡Cita agendada exitosamente!\n\n📅 ${this.formatDateSpanish(date)}\n🕐 ${time}\n\n¡Te esperamos!`;
+        return `✅ ¡Cita agendada exitosamente!\n\n📅 ${formatDateSpanish(date)}\n🕐 ${time}\n\n¡Te esperamos!`;
       } catch (error: unknown) {
         this.logger.error('Failed to create event', error instanceof Error ? error.message : '');
         await this.clearFlow(state.userPhone);
@@ -357,7 +372,6 @@ export class CalendarFlowHandler {
       return '❌ Cita cancelada. Si deseas agendar en otro momento, solo dime.';
     }
 
-    // Detect what the user wants to change
     const lower = userText.toLowerCase();
     
     if (lower.includes('duración') || lower.includes('duracion') || lower.includes('tiempo')) {
@@ -447,7 +461,7 @@ export class CalendarFlowHandler {
     }
 
     await this.updateFlowFields(state.userPhone, { extractedDate: date, currentStep: 'expecting_reschedule_time', attempts: 0 });
-    return `📅 Nueva fecha: *${this.formatDateSpanish(date)}*\n\n¿A qué hora te vendría bien?` + MENU_HINT;
+    return `📅 Nueva fecha: *${formatDateSpanish(date)}*\n\n¿A qué hora te vendría bien?` + MENU_HINT;
   }
 
   private async handleRescheduleTime(state: FlowState, userText: string, config: CalendarConfig): Promise<string> {
@@ -464,12 +478,12 @@ export class CalendarFlowHandler {
     const date = state.extractedDate!;
     const eventId = state.eventTitle!;
     const startDt = `${date}T${time}:00`;
-    const endDt = `${date}T${this.addMinutes(time, config.defaultDuration)}:00`;
+    const endDt = `${date}T${addMinutes(time, config.defaultDuration)}:00`;
 
     try {
       await this.calendar.rescheduleEvent(eventId, startDt, endDt);
       await this.clearFlow(state.userPhone);
-      return `✅ Evento reagendado para el *${this.formatDateSpanish(date)}* a las *${time}*.`;
+      return `✅ Evento reagendado para el *${formatDateSpanish(date)}* a las *${time}*.`;
     } catch {
       await this.clearFlow(state.userPhone);
       return '❌ No pude reagendar el evento. Intenta de nuevo.';
@@ -492,50 +506,28 @@ export class CalendarFlowHandler {
       if (!bhCheck.valid) return `⚠️ ${bhCheck.reason}` + MENU_HINT;
     }
 
-    const endTime = this.addMinutes(time, config.defaultDuration);
+    const endTime = addMinutes(time, config.defaultDuration);
     const overlap = await this.calendar.checkEventOverlap(date, time, endTime);
     if (overlap.overlap) return '⚠️ Ya hay un evento en ese horario. ¿Deseas elegir otra hora?' + MENU_HINT;
 
     await this.createFlowState(userPhone, conversationId, 'expecting_service', date, time, null);
 
-    return `✅ Fecha *${this.formatDateSpanish(date)}* y hora *${time}* anotadas.\n\n¿Cuál es el motivo o servicio de tu cita? (Ej: consulta médica, corte de cabello, revisión)` + MENU_HINT;
+    return `✅ Fecha *${formatDateSpanish(date)}* y hora *${time}* anotadas.\n\n¿Cuál es el motivo o servicio de tu cita? (Ej: consulta médica, corte de cabello, revisión)` + MENU_HINT;
   }
-
-  // ── Date/Time resolution helpers ──
 
   resolveDate(text: string): string | null {
     return this.calendar.validateDateFormat(text);
   }
 
   resolveTime(text: string): string | null {
-    const t = text.trim().toLowerCase();
+    const result = sharedResolveTime(text);
+    if (result) return result;
 
-    const match24 = t.match(/(\d{1,2}):(\d{2})/);
-    if (match24) {
-      const h = parseInt(match24[1], 10);
-      const m = parseInt(match24[2], 10);
-      if (h >= 0 && h <= 23 && m >= 0 && m <= 59) {
-        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-      }
-    }
-
-    const matchAmPm = t.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)/i);
-    if (matchAmPm) {
-      let h = parseInt(matchAmPm[1], 10);
-      const m = matchAmPm[2] ? parseInt(matchAmPm[2], 10) : 0;
-      const period = matchAmPm[3].replace(/\./g, '').toLowerCase();
-      if (period === 'pm' && h < 12) h += 12;
-      if (period === 'am' && h === 12) h = 0;
-      if (h >= 0 && h <= 23 && m >= 0 && m <= 59) {
-        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-      }
-    }
-
-    const hourOnly = t.match(/^(\d{1,2})$/);
+    const hourOnly = text.trim().match(/^(\d{1,2})$/);
     if (hourOnly) {
-      const h = parseInt(hourOnly[1], 10);
-      if (h >= 7 && h <= 23) {
-        return `${String(h).padStart(2, '0')}:00`;
+      const hour = parseInt(hourOnly[1], 10);
+      if (hour >= 7 && hour <= 23) {
+        return `${String(hour).padStart(2, '0')}:00`;
       }
     }
 
@@ -551,48 +543,11 @@ export class CalendarFlowHandler {
     return 'unknown';
   }
 
-  private addMinutes(time: string, minutes: number): string {
-    const [h, m] = time.split(':').map(Number);
-    const total = h * 60 + m + minutes;
-    return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
-  }
-
-  private formatDateSpanish(date: string): string {
-    const months = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-    const d = new Date(date + 'T12:00:00');
-    return `${d.getDate()} de ${months[d.getMonth()]} de ${d.getFullYear()}`;
-  }
-
-  private formatDateTime(d: Date): string {
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const hours = String(d.getHours()).padStart(2, '0');
-    const mins = String(d.getMinutes()).padStart(2, '0');
-    return `${day}/${month}/${d.getFullYear()} ${hours}:${mins}`;
-  }
-
-  private dayNameSpanish(day: string): string {
-    const map: Record<string, string> = {
-      monday: 'lunes', tuesday: 'martes', wednesday: 'miércoles', thursday: 'jueves',
-      friday: 'viernes', saturday: 'sábados', sunday: 'domingos',
-    };
-    return map[day] ?? day;
-  }
-
-  private filterEventsByPhone(events: import('./google-calendar.service').CalendarEvent[], userPhone: string): import('./google-calendar.service').CalendarEvent[] {
-    const normalized = userPhone.replace(/\D/g, '');
-    return events.filter((e) => {
-      const desc = (e.description ?? '').toLowerCase();
-      return desc.includes(userPhone) || desc.includes(normalized);
-    });
-  }
 
   private parseEventsJson(json: string | null): Array<{ id: string; summary: string; start: { dateTime?: string; date?: string } }> {
     if (!json) return [];
     try { return JSON.parse(json); } catch { return []; }
   }
-
-  // ── DB helpers ──
 
   private async getFlowState(userPhone: string): Promise<FlowState | null> {
     const rows = await this.db.db

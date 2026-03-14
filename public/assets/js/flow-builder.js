@@ -5,7 +5,7 @@ let currentView   = 'list';
 
 async function loadNodes() {
     try {
-        const res  = await fetch('/api/flows');
+        const res  = await apiFetch('/api/flows');
         const data = await res.json();
         if (!data.success) throw new Error(data.error);
         allNodes = data.data || [];
@@ -527,7 +527,7 @@ async function saveNode() {
     };
 
     try {
-        const res  = await fetch('/api/flows', {
+        const res  = await apiFetch('/api/flows', {
             method:  'POST',
             headers: {'Content-Type': 'application/json'},
             body:    JSON.stringify(payload),
@@ -551,7 +551,7 @@ async function deleteNode(id, name) {
             isDanger:    true,
             onConfirm:   async function() {
                 try {
-                    const res  = await fetch('/api/flows/' + id, {method: 'DELETE'});
+                    const res  = await apiFetch('/api/flows/' + id, {method: 'DELETE'});
                     const data = await res.json();
                     if (!data.success) throw new Error(data.error);
                     showToast('Nodo eliminado', 'warning');
@@ -565,7 +565,7 @@ async function deleteNode(id, name) {
 }
 
 async function exportFlow() {
-    const res  = await fetch('/api/flows');
+    const res  = await apiFetch('/api/flows');
     const data = await res.json();
     const blob = new Blob([JSON.stringify({version:'1.0', exported_at: new Date().toISOString(), nodes: data.data || []}, null, 2)], {type: 'application/json'});
     const url  = URL.createObjectURL(blob);
@@ -589,7 +589,7 @@ async function importFlow(event) {
             isDanger:    true,
             onConfirm:   async function() {
                 try {
-                    const res  = await fetch('/api/flows/import', {
+                    const res  = await apiFetch('/api/flows/import', {
                         method:  'POST',
                         headers: {'Content-Type': 'application/json'},
                         body:    text,
@@ -615,7 +615,7 @@ async function sendSimMessage() {
     appendSimMessage(msg, 'user');
 
     try {
-        const res  = await fetch('/api/simulate-flow', {
+        const res  = await apiFetch('/api/simulate-flow', {
             method:  'POST',
             headers: {'Content-Type': 'application/json'},
             body:    JSON.stringify({message: msg}),
@@ -666,7 +666,7 @@ function appendSimMessage(text, sender, nodeName) {
 }
 
 async function resetSimulator() {
-    await fetch('/api/simulate-flow', {
+    await apiFetch('/api/simulate-flow', {
         method:  'POST',
         headers: {'Content-Type': 'application/json'},
         body:    JSON.stringify({message: '', reset: true}),

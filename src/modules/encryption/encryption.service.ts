@@ -10,6 +10,15 @@ export class EncryptionService {
 
   constructor(private readonly config: ConfigService) {
     const cipherKey = this.config.get<string>('app.cipherKey') ?? '';
+    const nodeEnv = this.config.get<string>('app.nodeEnv');
+
+    if (!cipherKey || cipherKey.length < 32) {
+      if (nodeEnv === 'production') {
+        throw new Error('APP_CIPHER_KEY must be at least 32 characters in production');
+      }
+      this.logger.warn('APP_CIPHER_KEY is weak or empty — using padded key (unsafe for production)');
+    }
+
     this.key = Buffer.from(cipherKey.padEnd(32, '0').slice(0, 32), 'utf-8');
   }
 
