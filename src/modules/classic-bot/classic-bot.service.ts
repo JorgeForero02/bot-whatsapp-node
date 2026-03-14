@@ -57,6 +57,12 @@ export class ClassicBotService {
 
   async processMessage(userPhone: string, messageText: string): Promise<ClassicBotResult> {
     const fallback = await this.getFallbackMessage();
+    
+    if (this.isMenuCommand(messageText)) {
+      await this.clearSession(userPhone);
+      return this.handleNewMessage(userPhone, messageText, fallback);
+    }
+
     const session = await this.getSession(userPhone);
 
     if (session) {
@@ -68,6 +74,21 @@ export class ClassicBotService {
     }
 
     return this.handleNewMessage(userPhone, messageText, fallback);
+  }
+
+  private isMenuCommand(text: string): boolean {
+    const lower = text.trim().toLowerCase();
+    const menuKeywords = [
+      'menú', 'menu', 'MENU', 'MENÚ',
+      'inicio', 'INICIO', 'start', 'START',
+      'volver', 'VOLVER', 'back', 'BACK',
+      'regresar', 'REGRESAR', 'return', 'RETURN',
+      'salir', 'SALIR', 'exit', 'EXIT',
+      'cancelar', 'CANCELAR', 'cancel', 'CANCEL',
+      'principal', 'PRINCIPAL', 'main', 'MAIN',
+      'home', 'HOME', 'atras', 'ATRAS'
+    ];
+    return menuKeywords.some(keyword => lower === keyword.toLowerCase());
   }
 
   private async handleNewMessage(userPhone: string, messageText: string, fallback: string): Promise<ClassicBotResult> {
