@@ -6,7 +6,7 @@
       "id": 1,
       "name": "Bienvenida",
       "trigger_keywords": [],
-      "message_text": "👋 ¡Hola! Bienvenido a nuestro servicio.\n\nSoy tu asistente virtual y estoy aquí para ayudarte.\n\n*¿Qué necesitas hoy?*\n\n1️⃣ Información de servicios\n2️⃣ Ubicación y horarios\n3️⃣ Hablar con un agente\n\nEscribe el *número* de tu opción o cuéntame qué necesitas.\n\n_Para gestionar citas (agendar, ver, cancelar o reagendar), escribe *calendario*_",
+      "message_text": "👋 ¡Hola! Bienvenido a nuestro servicio.\n\nSoy tu asistente virtual y estoy aquí para ayudarte.\n\n*¿Qué necesitas hoy?*\n\n1️⃣ Gestionar citas\n2️⃣ Información de servicios\n3️⃣ Ubicación y horarios\n4️⃣ Hablar con un agente\n\nEscribe el *número* de tu opción o cuéntame qué necesitas.",
       "next_node_id": null,
       "is_root": true,
       "requires_calendar": false,
@@ -15,22 +15,28 @@
       "is_active": true,
       "options": [
         {
-          "option_text": "Informacion de servicios",
-          "option_keywords": ["1", "servicios", "servicio", "info", "informacion", "precios", "que hacen", "que ofrecen"],
-          "next_node_id": 2,
+          "option_text": "Gestionar citas",
+          "option_keywords": ["1", "citas", "cita", "agendar", "calendario", "agenda", "turno", "reservar", "appointment"],
+          "next_node_id": 6,
           "position_order": 1
         },
         {
-          "option_text": "Ubicacion y horarios",
-          "option_keywords": ["2", "ubicacion", "horarios", "horario", "direccion", "donde", "donde estan", "como llegar"],
-          "next_node_id": 3,
+          "option_text": "Informacion de servicios",
+          "option_keywords": ["2", "servicios", "servicio", "info", "informacion", "precios", "que hacen", "que ofrecen"],
+          "next_node_id": 2,
           "position_order": 2
         },
         {
-          "option_text": "Hablar con un agente",
-          "option_keywords": ["3", "agente", "humano", "persona", "operador", "ayuda", "asistencia"],
-          "next_node_id": 4,
+          "option_text": "Ubicacion y horarios",
+          "option_keywords": ["3", "ubicacion", "horarios", "horario", "direccion", "donde", "donde estan", "como llegar"],
+          "next_node_id": 3,
           "position_order": 3
+        },
+        {
+          "option_text": "Hablar con un agente",
+          "option_keywords": ["4", "agente", "humano", "persona", "operador", "ayuda", "asistencia"],
+          "next_node_id": 4,
+          "position_order": 4
         }
       ]
     },
@@ -38,7 +44,7 @@
       "id": 2,
       "name": "Servicios",
       "trigger_keywords": ["servicios", "servicio", "precios", "costo", "valor", "tarifa", "que hacen", "que ofrecen"],
-      "message_text": "📋 *Nuestros Servicios*\n\nOfrecemos los siguientes servicios:\n\n✅ *Consulta General*\nAtención personalizada con nuestros especialistas\nDuración: 30-45 minutos\n\n✅ *Consulta de Seguimiento*\nPara pacientes con cita previa\nDuración: 20-30 minutos\n\n✅ *Procedimientos Especializados*\nConsulta disponibilidad con tu especialista\n\n💰 *Precios*\nContáctanos para información detallada de tarifas.\n\n¿Necesitas algo más?\n\n1️⃣ Ver ubicación y horarios\n2️⃣ Agendar una cita\n3️⃣ Volver al menú principal\n\nEscribe *calendario* para gestionar tus citas.",
+      "message_text": "📋 *Nuestros Servicios*\n\nOfrecemos los siguientes servicios:\n\n✅ *Consulta General*\nAtención personalizada con nuestros especialistas\nDuración: 30-45 minutos\n\n✅ *Consulta de Seguimiento*\nPara pacientes con cita previa\nDuración: 20-30 minutos\n\n✅ *Procedimientos Especializados*\nConsulta disponibilidad con tu especialista\n\n💰 *Precios*\nContáctanos para información detallada de tarifas.\n\n¿Necesitas algo más?\n\n1️⃣ Ver ubicación y horarios\n2️⃣ Volver al menú principal",
       "next_node_id": null,
       "is_root": false,
       "requires_calendar": false,
@@ -47,22 +53,16 @@
       "is_active": true,
       "options": [
         {
-          "option_text": "1. Ver ubicacion y horarios",
+          "option_text": "Ver ubicacion y horarios",
           "option_keywords": ["1", "ubicacion", "horarios", "donde"],
           "next_node_id": 3,
           "position_order": 1
         },
         {
-          "option_text": "2. Agendar una cita",
-          "option_keywords": ["2", "agendar", "cita", "calendario"],
-          "next_node_id": null,
-          "position_order": 2
-        },
-        {
-          "option_text": "3. Volver al menu",
-          "option_keywords": ["3", "menu", "volver", "regresar", "inicio"],
+          "option_text": "Volver al menu",
+          "option_keywords": ["2", "menu", "volver", "regresar", "inicio"],
           "next_node_id": 1,
-          "position_order": 3
+          "position_order": 2
         }
       ]
     },
@@ -70,7 +70,7 @@
       "id": 3,
       "name": "Ubicacion y horarios",
       "trigger_keywords": ["ubicacion", "horarios", "horario", "direccion", "donde", "abren", "cierran", "como llegar"],
-      "message_text": "📍 *Nuestra Ubicación*\n\nCalle Principal #123\nBogotá, Colombia\n\n🕐 *Horarios de Atención*\n\n• Lunes a Viernes: 8:00 AM - 6:00 PM\n• Sábados: 8:00 AM - 1:00 PM\n• Domingos: Cerrado\n\n📞 *Contacto*\n\nTeléfono: +57 300 000 0000\nEmail: info@minegocio.com\n\n¿Qué más necesitas?\n\n1️⃣ Ver servicios\n2️⃣ Agendar una cita\n3️⃣ Volver al menú\n\nEscribe *calendario* para gestionar tus citas.",
+      "message_text": "📍 *Nuestra Ubicación*\n\nCalle Principal #123\nBogotá, Colombia\n\n🕐 *Horarios de Atención*\n\n• Lunes a Viernes: 8:00 AM - 6:00 PM\n• Sábados: 8:00 AM - 1:00 PM\n• Domingos: Cerrado\n\n📞 *Contacto*\n\nTeléfono: +57 300 000 0000\nEmail: info@minegocio.com\n\n¿Qué más necesitas?\n\n1️⃣ Ver servicios\n2️⃣ Volver al menú",
       "next_node_id": null,
       "is_root": false,
       "requires_calendar": false,
@@ -79,22 +79,16 @@
       "is_active": true,
       "options": [
         {
-          "option_text": "1. Ver servicios",
+          "option_text": "Ver servicios",
           "option_keywords": ["1", "servicios", "info"],
           "next_node_id": 2,
           "position_order": 1
         },
         {
-          "option_text": "2. Agendar una cita",
-          "option_keywords": ["2", "agendar", "cita", "calendario"],
-          "next_node_id": null,
-          "position_order": 2
-        },
-        {
-          "option_text": "3. Volver al menu",
-          "option_keywords": ["3", "menu", "volver", "regresar"],
+          "option_text": "Volver al menu",
+          "option_keywords": ["2", "menu", "volver", "regresar"],
           "next_node_id": 1,
-          "position_order": 3
+          "position_order": 2
         }
       ]
     },
@@ -122,13 +116,26 @@
       "id": 5,
       "name": "Despedida",
       "trigger_keywords": ["adios", "hasta luego", "chao", "bye", "gracias", "eso es todo", "ya no necesito nada", "listo", "perfecto", "muchas gracias"],
-      "message_text": "� ¡Hasta pronto!\n\nHa sido un placer atenderte. Si en algún momento necesitas más ayuda, estamos aquí para ti.\n\n✨ ¡Que tengas un excelente día!",
+      "message_text": "👋 ¡Hasta pronto!\n\nHa sido un placer atenderte. Si en algún momento necesitas más ayuda, estamos aquí para ti.\n\n✨ ¡Que tengas un excelente día!",
       "next_node_id": null,
       "is_root": false,
       "requires_calendar": false,
       "match_any_input": false,
       "is_farewell": true,
       "position_order": 5,
+      "is_active": true,
+      "options": []
+    },
+    {
+      "id": 6,
+      "name": "Gestionar Citas",
+      "trigger_keywords": ["citas", "cita", "agendar", "calendario", "agenda", "turno", "reservar", "appointment"],
+      "message_text": "📅 *Gestión de Citas*\n\nPerfecto, te ayudaré con tus citas.\n\nEscribe *menú* para agendar, ver, cancelar o reagendar tus citas.\n\nEl sistema de calendario te guiará paso a paso.",
+      "next_node_id": null,
+      "is_root": false,
+      "requires_calendar": false,
+      "match_any_input": false,
+      "position_order": 6,
       "is_active": true,
       "options": []
     }

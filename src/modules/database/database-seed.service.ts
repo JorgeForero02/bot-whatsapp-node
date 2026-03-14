@@ -5,7 +5,7 @@ import { DatabaseService } from './database.service';
 const DEFAULT_SETTINGS: Array<{ key: string; value: string; type: 'text' | 'boolean' | 'json' }> = [
   { key: 'bot_name',                value: 'WhatsApp Bot',                                                                                      type: 'text' },
   { key: 'bot_greeting',            value: 'Hola! Soy un asistente virtual. ¿En qué puedo ayudarte?',                                          type: 'text' },
-  { key: 'bot_fallback_message',    value: 'Lo siento, no encontré información relevante. Un operador humano te atenderá pronto.',              type: 'text' },
+  { key: 'bot_fallback_message',    value: 'Lo siento, no encontré información relevante. Un operador humano te atenderá pronto.\n\nEscribe *menú* para volver al menú principal.',              type: 'text' },
   { key: 'human_handoff_enabled',   value: 'true',                                                                                              type: 'boolean' },
   { key: 'openai_status',           value: 'active',                                                                                            type: 'text' },
   { key: 'openai_last_error',       value: '',                                                                                                   type: 'text' },
@@ -16,7 +16,7 @@ const DEFAULT_SETTINGS: Array<{ key: string; value: string; type: 'text' | 'bool
   { key: 'business_name',           value: 'Mi Negocio',                                                                                        type: 'text' },
   { key: 'timezone',                value: 'America/Bogota',                                                                                     type: 'text' },
   { key: 'welcome_message',         value: 'Hola! Soy un asistente virtual. ¿En qué puedo ayudarte?',                                          type: 'text' },
-  { key: 'fallback_message',        value: 'Lo siento, no encontré información relevante. Un operador humano te atenderá pronto.',              type: 'text' },
+  { key: 'fallback_message',        value: 'Lo siento, no encontré información relevante. Un operador humano te atenderá pronto.\n\nEscribe *menú* para volver al menú principal.',              type: 'text' },
   { key: 'calendar_enabled',        value: 'false',                                                                                              type: 'boolean' },
   { key: 'confidence_threshold',    value: '0.7',                                                                                                type: 'text' },
   { key: 'max_results',             value: '5',                                                                                                  type: 'text' },
