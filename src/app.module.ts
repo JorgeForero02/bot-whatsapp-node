@@ -29,7 +29,7 @@ import { OnboardingGuard } from './common/guards/onboarding.guard';
     LoggerModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
-        const isProd = config.get<string>('app.nodeEnv') === 'production';
+        const isProd = process.env.NODE_ENV === 'production' || config.get<string>('app.nodeEnv') === 'production';
         return {
           pinoHttp: {
             level: isProd ? 'info' : 'debug',
