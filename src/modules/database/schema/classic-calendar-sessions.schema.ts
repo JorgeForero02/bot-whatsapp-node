@@ -7,7 +7,7 @@ export const classicCalendarSessions = mysqlTable(
     userPhone: varchar('user_phone', { length: 50 }).notNull(),
     step: varchar('step', { length: 50 }).notNull(),
     data: text('data'),
-    expiresAt: timestamp('expires_at').notNull(),
+    expiresAt: timestamp('expires_at', { mode: 'string' }).notNull(),
     createdAt: timestamp('created_at').defaultNow(),
     updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
   },

@@ -42,17 +42,24 @@ export class ClassicCalendarFlowHandler {
     const session = await this.getSession(userPhone);
 
     if (session) {
-      if (new Date() > session.expiresAt) {
+      const now = new Date();
+      this.logger.log(`Calendar session found for ${userPhone}, step=${session.currentStep}, now=${now.toISOString()}, expiresAt=${session.expiresAt.toISOString()}`);
+      
+      if (now > session.expiresAt) {
+        this.logger.warn(`Calendar session expired for ${userPhone}: now=${now.toISOString()} > expiresAt=${session.expiresAt.toISOString()}`);
         await this.clearSession(userPhone);
-        return '⏰ Tu sesión de calendario expiró. Escribe *calendario* para empezar de nuevo.';
+        return '⏰ Tu sesión de calendario expiró. Escribe *menú* para volver al menú principal.';
       }
 
       if (this.isMenuCommand(userText)) {
+        this.logger.log(`Menu command received, clearing session for ${userPhone}`);
         await this.clearSession(userPhone);
         return '↩️ Has salido del calendario. Escribe *menú* para ver las opciones del bot.';
       }
 
-      return this.continueSession(session, userText, contactName);
+      const response = await this.continueSession(session, userText, contactName);
+      this.logger.log(`Calendar session continued for ${userPhone}, response length=${response.length}`);
+      return response;
     }
 
     return null;
@@ -98,7 +105,7 @@ export class ClassicCalendarFlowHandler {
         return this.handleRescheduleTime(session, userText, config);
       default:
         await this.clearSession(session.userPhone);
-        return 'Sesión inválida. Escribe "calendario" para empezar de nuevo.';
+        return 'Sesión inválida. Escribe *menú* para volver al menú principal.';
     }
   }
 
@@ -118,7 +125,7 @@ export class ClassicCalendarFlowHandler {
         dateOpts.forEach((opt, i) => {
           dateMsg += `${i + 1}. ${opt.label}\n`;
         });
-        dateMsg += '\nEscribe el *número* de la opción o la fecha en formato *dd/mm/aaaa*' + MENU_HINT;
+        dateMsg += '\nEscribe el *número* de la opción o la fecha en formato *dd/mm* o *dd/mm/aaaa*\n(Ej: 16/3 o 16/03/2026)' + MENU_HINT;
         return dateMsg;
       }
       case '2': {
@@ -127,10 +134,10 @@ export class ClassicCalendarFlowHandler {
           const filtered = filterEventsByPhone(events.items ?? [], session.userPhone);
           await this.clearSession(session.userPhone);
           const formatted = this.calendar.formatEventsForWhatsApp(filtered);
-          return formatted + '\n\n_Escribe *calendario* para volver al menú de calendario._';
+          return formatted + '\n\n_Escribe *menú* para volver al menú principal._';
         } catch {
           await this.clearSession(session.userPhone);
-          return '❌ No pude consultar tus eventos. Intenta de nuevo.\n\n_Escribe *calendario* para volver al menú de calendario._';
+          return '❌ No pude consultar tus eventos. Intenta de nuevo.\n\n_Escribe *menú* para volver al menú principal._';
         }
       }
       case '3': {
@@ -139,7 +146,7 @@ export class ClassicCalendarFlowHandler {
           const items = filterEventsByPhone(events.items ?? [], session.userPhone);
           if (items.length === 0) {
             await this.clearSession(session.userPhone);
-            return 'No tienes eventos próximos para cancelar.\n\n_Escribe *calendario* para volver al menú de calendario._';
+            return 'No tienes eventos próximos para cancelar.\n\n_Escribe *menú* para volver al menú principal._';
           }
           await this.updateSession(session.userPhone, 'cancel_select', { events: items });
           let msg = '¿Cuál evento deseas cancelar?\n\n';
@@ -160,7 +167,7 @@ export class ClassicCalendarFlowHandler {
           const items = filterEventsByPhone(events.items ?? [], session.userPhone);
           if (items.length === 0) {
             await this.clearSession(session.userPhone);
-            return 'No tienes eventos próximos para reagendar.\n\n_Escribe *calendario* para volver al menú de calendario._';
+            return 'No tienes eventos próximos para reagendar.\n\n_Escribe *menú* para volver al menú principal._';
           }
           await this.updateSession(session.userPhone, 'reschedule_select', { events: items });
           let msg = '¿Cuál evento deseas reagendar?\n\n';
@@ -191,7 +198,7 @@ export class ClassicCalendarFlowHandler {
       date = this.parseStrictDate(input);
     }
     if (!date) {
-      return '❌ Opción inválida.\n\nEscribe el *número* de la opción o la fecha en formato *dd/mm/aaaa*\n(Ej: 25/03/2026)' + MENU_HINT;
+      return '❌ Opción inválida.\n\nEscribe el *número* de la opción o la fecha en formato *dd/mm* o *dd/mm/aaaa*\n(Ej: 16/3, 16/03 o 16/03/2026)' + MENU_HINT;
     }
 
     const pastCheck = this.calendar.validateDateNotPast(date);
@@ -201,7 +208,7 @@ export class ClassicCalendarFlowHandler {
       const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
       const dayOfWeek = dayNames[new Date(date + 'T12:00:00').getDay()];
       if (!config.businessHours[dayOfWeek]) {
-        return `⚠️ No atendemos los ${dayNameSpanish(dayOfWeek)}. Por favor elige otro día.\n\nEscribe la fecha en formato *dd/mm/aaaa*` + MENU_HINT;
+        return `⚠️ No atendemos los ${dayNameSpanish(dayOfWeek)}. Por favor elige otro día.\n\nEscribe la fecha en formato *dd/mm* o *dd/mm/aaaa*` + MENU_HINT;
       }
     }
 
@@ -279,16 +286,16 @@ export class ClassicCalendarFlowHandler {
           config,
         );
         await this.clearSession(session.userPhone);
-        return `✅ *¡Cita agendada exitosamente!*\n\n📅 ${formatDateSpanish(date)}\n🕐 ${time}\n\n¡Te esperamos!\n\n_Escribe *calendario* para volver al menú de calendario._`;
+        return `✅ *¡Cita agendada exitosamente!*\n\n📅 ${formatDateSpanish(date)}\n🕐 ${time}\n\n¡Te esperamos!\n\n_Escribe *menú* para volver al menú principal._`;
       } catch {
         await this.clearSession(session.userPhone);
-        return '❌ Error al crear la cita. Intenta de nuevo.\n\n_Escribe *calendario* para volver al menú de calendario._';
+        return '❌ Error al crear la cita. Intenta de nuevo.\n\n_Escribe *menú* para volver al menú principal._';
       }
     }
 
     if (noWords.some((w) => lower.includes(w))) {
       await this.clearSession(session.userPhone);
-      return '❌ Cita cancelada.\n\n_Escribe *calendario* para volver al menú de calendario._';
+      return '❌ Cita cancelada.\n\n_Escribe *menú* para volver al menú principal._';
     }
 
     return 'Responde *sí* o *no*.' + MENU_HINT;
@@ -305,10 +312,10 @@ export class ClassicCalendarFlowHandler {
     try {
       await this.calendar.deleteEvent(events[idx].id);
       await this.clearSession(session.userPhone);
-      return `✅ Evento *${events[idx].summary}* cancelado exitosamente.\n\n_Escribe *calendario* para volver al menú de calendario._`;
+      return `✅ Evento *${events[idx].summary}* cancelado exitosamente.\n\n_Escribe *menú* para volver al menú principal._`;
     } catch {
       await this.clearSession(session.userPhone);
-      return '❌ No pude cancelar el evento.\n\n_Escribe *calendario* para volver al menú de calendario._';
+      return '❌ No pude cancelar el evento.\n\n_Escribe *menú* para volver al menú principal._';
     }
   }
 
@@ -325,13 +332,13 @@ export class ClassicCalendarFlowHandler {
       eventId: events[idx].id,
       eventSummary: events[idx].summary,
     });
-    return `📅 Reagendando *${events[idx].summary}*\n\n¿Para qué nueva fecha?\nEscribe en formato *dd/mm/aaaa*` + MENU_HINT;
+    return `📅 Reagendando *${events[idx].summary}*\n\n¿Para qué nueva fecha?\nEscribe en formato *dd/mm* o *dd/mm/aaaa*` + MENU_HINT;
   }
 
   private async handleRescheduleDate(session: SessionState, userText: string, config: CalendarConfig): Promise<string> {
     const date = this.parseStrictDate(userText.trim());
     if (!date) {
-      return '❌ Formato de fecha inválido.\n\nEscribe la fecha en formato *dd/mm/aaaa*\n(Ej: 25/03/2026)' + MENU_HINT;
+      return '❌ Formato de fecha inválido.\n\nEscribe la fecha en formato *dd/mm* o *dd/mm/aaaa*\n(Ej: 16/3, 16/03 o 16/03/2026)' + MENU_HINT;
     }
 
     const pastCheck = this.calendar.validateDateNotPast(date);
@@ -360,10 +367,10 @@ export class ClassicCalendarFlowHandler {
     try {
       await this.calendar.rescheduleEvent(eventId, startDt, endDt);
       await this.clearSession(session.userPhone);
-      return `✅ Evento reagendado exitosamente.\n\n📅 ${formatDateSpanish(date)}\n🕐 ${time}\n\n_Escribe *calendario* para volver al menú de calendario._`;
+      return `✅ Evento reagendado exitosamente.\n\n📅 ${formatDateSpanish(date)}\n🕐 ${time}\n\n_Escribe *menú* para volver al menú principal._`;
     } catch {
       await this.clearSession(session.userPhone);
-      return '❌ No pude reagendar el evento.\n\n_Escribe *calendario* para volver al menú de calendario._';
+      return '❌ No pude reagendar el evento.\n\n_Escribe *menú* para volver al menú principal._';
     }
   }
 
@@ -432,15 +439,37 @@ export class ClassicCalendarFlowHandler {
   }
 
   private parseStrictDate(text: string): string | null {
-    const match = text.match(/^(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})$/);
-    if (!match) return null;
-    const day = parseInt(match[1], 10);
-    const month = parseInt(match[2], 10);
-    const year = parseInt(match[3], 10);
-    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-    const d = new Date(year, month - 1, day);
-    if (d.getFullYear() !== year || d.getMonth() !== month - 1 || d.getDate() !== day) return null;
-    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const fullMatch = text.match(/^(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})$/);
+    if (fullMatch) {
+      const day = parseInt(fullMatch[1], 10);
+      const month = parseInt(fullMatch[2], 10);
+      const year = parseInt(fullMatch[3], 10);
+      if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+      const d = new Date(year, month - 1, day);
+      if (d.getFullYear() !== year || d.getMonth() !== month - 1 || d.getDate() !== day) return null;
+      return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    }
+    
+    const shortMatch = text.match(/^(\d{1,2})[/\-](\d{1,2})$/);
+    if (shortMatch) {
+      const day = parseInt(shortMatch[1], 10);
+      const month = parseInt(shortMatch[2], 10);
+      if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+      
+      const now = new Date();
+      let year = now.getFullYear();
+      const d = new Date(year, month - 1, day);
+      if (d.getFullYear() !== year || d.getMonth() !== month - 1 || d.getDate() !== day) return null;
+      
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      if (d < today) {
+        year += 1;
+      }
+      
+      return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    }
+    
+    return null;
   }
 
 
@@ -452,34 +481,45 @@ export class ClassicCalendarFlowHandler {
       .limit(1);
     if (rows.length === 0) return null;
     const r = rows[0];
+    this.logger.log(`Raw session from DB for ${userPhone}: expiresAt=${r.expiresAt}, type=${typeof r.expiresAt}`);
     let sessionData: Record<string, unknown> = {};
     if (r.data) {
       try { sessionData = JSON.parse(r.data); } catch { }
     }
+    const expiresAtDate = new Date(r.expiresAt + 'Z');
+    this.logger.log(`Converted expiresAt for ${userPhone}: ${expiresAtDate.toISOString()}`);
     return {
       id: r.id,
       userPhone: r.userPhone,
       currentStep: r.step as ClassicStep,
       sessionData,
-      expiresAt: r.expiresAt,
+      expiresAt: expiresAtDate,
     };
   }
 
   private async createSession(userPhone: string, step: ClassicStep, data: Record<string, unknown>): Promise<void> {
     await this.clearSession(userPhone);
-    const expiresAt = new Date(Date.now() + SESSION_EXPIRY_MINUTES * 60000);
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + SESSION_EXPIRY_MINUTES * 60000);
+    const expiresAtStr = expiresAt.toISOString().slice(0, 19).replace('T', ' ');
+    this.logger.log(`Creating calendar session for ${userPhone}: step=${step}, now=${now.toISOString()}, expiresAt=${expiresAt.toISOString()}, expiresAtStr=${expiresAtStr}`);
     await this.db.db.insert(classicCalendarSessions).values({
       userPhone,
       step,
       data: JSON.stringify(data),
-      expiresAt,
+      expiresAt: expiresAtStr,
     });
+    this.logger.log(`Calendar session created successfully for ${userPhone}`);
   }
 
   private async updateSession(userPhone: string, step: ClassicStep, data: Record<string, unknown>): Promise<void> {
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + SESSION_EXPIRY_MINUTES * 60000);
+    const expiresAtStr = expiresAt.toISOString().slice(0, 19).replace('T', ' ');
+    this.logger.log(`Updating calendar session for ${userPhone}: step=${step}, data keys=${Object.keys(data).join(',')}, new expiresAt=${expiresAt.toISOString()}`);
     await this.db.db
       .update(classicCalendarSessions)
-      .set({ step, data: JSON.stringify(data) })
+      .set({ step, data: JSON.stringify(data), expiresAt: expiresAtStr })
       .where(eq(classicCalendarSessions.userPhone, userPhone));
   }
 

@@ -20,15 +20,11 @@ export class ClassicStrategy implements MessageProcessingStrategy {
     const calendarUnavailableMsg = 'Lo sentimos, ese servicio no está activo en este momento. Presiona *menu* para volver.';
 
     try {
-      try {
-        const calendarResponse = await this.classicCalendar.handleMessage(context.from, context.userText, context.contactName);
-        if (calendarResponse) {
-          this.logger.log(`Classic calendar flow handled for ${context.from}`);
-          await this.sendBotResponse(context.conversationId, context.from, calendarResponse);
-          return { handled: true };
-        }
-      } catch (error: unknown) {
-        this.logger.error('Classic calendar session error', error instanceof Error ? error.message : '');
+      const calendarResponse = await this.classicCalendar.handleMessage(context.from, context.userText, context.contactName);
+      if (calendarResponse) {
+        this.logger.log(`Classic calendar flow handled for ${context.from}`);
+        await this.sendBotResponse(context.conversationId, context.from, calendarResponse);
+        return { handled: true };
       }
 
       const result = await this.classicBot.processMessage(context.from, context.userText);

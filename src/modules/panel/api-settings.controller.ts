@@ -132,7 +132,8 @@ export class ApiSettingsController {
   @Get('calendar-events')
   async getCalendarEvents(): Promise<Record<string, unknown>> {
     try {
-      const events = await this.googleCalendar.listUpcomingEvents(5);
+      const today = new Date().toISOString().slice(0, 10);
+      const events = await this.googleCalendar.getEventsByDateRange(today, today, 20);
       return { success: true, data: events.items ?? [] };
     } catch (error: unknown) {
       this.logger.warn('Failed to fetch calendar events', error instanceof Error ? error.message : '');

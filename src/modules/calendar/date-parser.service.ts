@@ -22,13 +22,32 @@ export class DateParserService {
   }
 
   parseNumericDate(dateText: string): string | null {
-    const match = dateText.match(/(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})/);
-    if (!match) return null;
-    const day = parseInt(match[1], 10);
-    const month = parseInt(match[2], 10);
-    const year = parseInt(match[3], 10);
-    if (!this.isValidDate(year, month, day)) return null;
-    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const fullMatch = dateText.match(/(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})/);
+    if (fullMatch) {
+      const day = parseInt(fullMatch[1], 10);
+      const month = parseInt(fullMatch[2], 10);
+      const year = parseInt(fullMatch[3], 10);
+      if (this.isValidDate(year, month, day)) {
+        return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      }
+    }
+    
+    const shortMatch = dateText.match(/(\d{1,2})[/\-](\d{1,2})(?:\s|$)/);
+    if (shortMatch) {
+      const day = parseInt(shortMatch[1], 10);
+      const month = parseInt(shortMatch[2], 10);
+      const now = new Date();
+      let year = now.getFullYear();
+      if (this.isValidDate(year, month, day)) {
+        const candidate = new Date(year, month - 1, day);
+        if (candidate < new Date(now.getFullYear(), now.getMonth(), now.getDate())) {
+          year += 1;
+        }
+        return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      }
+    }
+    
+    return null;
   }
 
   parseSpanishMonthDate(dateText: string): string | null {
