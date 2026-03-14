@@ -287,12 +287,13 @@ export class FlowBuilderService {
       if (nodeData.options) {
         for (const opt of nodeData.options) {
           const legacyOpt = opt as Record<string, unknown>;
+          const optionText = (opt.optionText ?? legacyOpt['option_text']) as string;
           const optionKeywords = (opt.optionKeywords ?? legacyOpt['option_keywords'] ?? []) as string[];
           const nextId = (opt.nextNodeId ?? legacyOpt['next_node_id'] ?? null) as number | null;
           const mappedNextId = nextId ? idMap.get(nextId) ?? nextId : null;
           await this.db.db.insert(flowOptions).values({
             nodeId: newId,
-            optionText: opt.optionText,
+            optionText,
             optionKeywords,
             nextNodeId: mappedNextId,
             positionOrder: (opt.positionOrder ?? legacyOpt['position_order'] ?? 0) as number,

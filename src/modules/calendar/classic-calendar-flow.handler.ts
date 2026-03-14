@@ -43,7 +43,6 @@ export class ClassicCalendarFlowHandler {
 
     if (session) {
       const now = new Date();
-      this.logger.log(`Calendar session found for ${userPhone}, step=${session.currentStep}, now=${now.toISOString()}, expiresAt=${session.expiresAt.toISOString()}`);
       
       if (now > session.expiresAt) {
         this.logger.warn(`Calendar session expired for ${userPhone}: now=${now.toISOString()} > expiresAt=${session.expiresAt.toISOString()}`);
@@ -52,14 +51,11 @@ export class ClassicCalendarFlowHandler {
       }
 
       if (this.isMenuCommand(userText)) {
-        this.logger.log(`Menu command received, clearing session for ${userPhone}`);
         await this.clearSession(userPhone);
         return '↩️ Has salido del calendario. Escribe *menú* para ver las opciones del bot.';
       }
 
-      const response = await this.continueSession(session, userText, contactName);
-      this.logger.log(`Calendar session continued for ${userPhone}, response length=${response.length}`);
-      return response;
+      return this.continueSession(session, userText, contactName);
     }
 
     return null;
@@ -481,13 +477,11 @@ export class ClassicCalendarFlowHandler {
       .limit(1);
     if (rows.length === 0) return null;
     const r = rows[0];
-    this.logger.log(`Raw session from DB for ${userPhone}: expiresAt=${r.expiresAt}, type=${typeof r.expiresAt}`);
     let sessionData: Record<string, unknown> = {};
     if (r.data) {
       try { sessionData = JSON.parse(r.data); } catch { }
     }
     const expiresAtDate = new Date(r.expiresAt + 'Z');
-    this.logger.log(`Converted expiresAt for ${userPhone}: ${expiresAtDate.toISOString()}`);
     return {
       id: r.id,
       userPhone: r.userPhone,
@@ -502,21 +496,18 @@ export class ClassicCalendarFlowHandler {
     const now = new Date();
     const expiresAt = new Date(now.getTime() + SESSION_EXPIRY_MINUTES * 60000);
     const expiresAtStr = expiresAt.toISOString().slice(0, 19).replace('T', ' ');
-    this.logger.log(`Creating calendar session for ${userPhone}: step=${step}, now=${now.toISOString()}, expiresAt=${expiresAt.toISOString()}, expiresAtStr=${expiresAtStr}`);
     await this.db.db.insert(classicCalendarSessions).values({
       userPhone,
       step,
       data: JSON.stringify(data),
       expiresAt: expiresAtStr,
     });
-    this.logger.log(`Calendar session created successfully for ${userPhone}`);
   }
 
   private async updateSession(userPhone: string, step: ClassicStep, data: Record<string, unknown>): Promise<void> {
     const now = new Date();
     const expiresAt = new Date(now.getTime() + SESSION_EXPIRY_MINUTES * 60000);
     const expiresAtStr = expiresAt.toISOString().slice(0, 19).replace('T', ' ');
-    this.logger.log(`Updating calendar session for ${userPhone}: step=${step}, data keys=${Object.keys(data).join(',')}, new expiresAt=${expiresAt.toISOString()}`);
     await this.db.db
       .update(classicCalendarSessions)
       .set({ step, data: JSON.stringify(data), expiresAt: expiresAtStr })

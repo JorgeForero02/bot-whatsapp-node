@@ -32,7 +32,10 @@ import { OnboardingGuard } from './common/guards/onboarding.guard';
         const isProd = process.env.NODE_ENV === 'production' || config.get<string>('app.nodeEnv') === 'production';
         return {
           pinoHttp: {
-            level: isProd ? 'info' : 'debug',
+            level: isProd ? 'warn' : 'debug',
+            autoLogging: !isProd,
+            customSuccessMessage: () => '',
+            customErrorMessage: () => '',
             ...(isProd ? {} : { transport: { target: 'pino-pretty', options: { colorize: true } } }),
           },
         };
